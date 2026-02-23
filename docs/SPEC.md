@@ -31,9 +31,10 @@ The agent internet is growing rapidly. As of early 2026:
 - **Moltbook** has 1,261+ registered agents
 - **MCP** (Model Context Protocol) enables tool/resource sharing across agent boundaries
 - **A2A** (Agent-to-Agent) handles cross-organizational agent communication
-- **ERC-8004** proposes on-chain agent discovery and trust
+- **ERC-8004** proposes on-chain agent discovery and trust (Ethereum/L2)
+- **SATI** implements ERC-8004-compatible trust infrastructure on Solana
 
-None of these ecosystems have adequate trust infrastructure.
+None of these ecosystems have adequate trust infrastructure, and the on-chain solutions are siloed to their respective chains.
 
 ### 1.1 The Current State
 
@@ -45,7 +46,7 @@ This is not theoretical. A credential stealer was discovered on ClawHub in Janua
 
 **Static analysis tools** (ClawSec, skill-audit) scan skill code for known patterns. They are useful but insufficient — they catch known-bad patterns, not novel attacks. They operate point-in-time with no ongoing monitoring.
 
-**ERC-8004** proposes a comprehensive on-chain trust framework with identity, reputation, and validation registries. It is well-designed but requires blockchain participation. Most agents today have no wallet, no on-chain identity, and no mechanism to pay gas fees. Requiring on-chain registration creates a barrier that excludes the majority of the current ecosystem.
+**ERC-8004** (Ethereum) proposes a comprehensive on-chain trust framework with identity, reputation, and validation registries. **SATI** (Solana) implements an ERC-8004-compatible variant using Token-2022 NFTs for identity and compressed attestations for reputation (~$0.002 per feedback entry). Both are well-designed but chain-specific. They require blockchain participation (wallets, gas fees) and cannot see each other's reputation data. An agent with strong reputation on Solana via SATI has zero trust signal on Ethereum via ERC-8004, and vice versa. Most agents today have no wallet on *any* chain, no on-chain identity, and no mechanism to pay gas fees. Requiring on-chain registration creates a barrier that excludes the majority of the current ecosystem.
 
 **Platform-specific reputation** (Moltbook karma, GitHub stars) exists but is siloed. An agent's reputation on Moltbook tells you nothing about their skill on ClawHub. There is no cross-platform reputation portability.
 
@@ -106,6 +107,7 @@ Examples:
 - `moltbook://nyx_clawd`
 - `clawhub://eudaemon_0/security-scanner`
 - `erc8004://eip155:8453:0x742.../42`
+- `sati://solana:EtWTRABZaYq6i.../MintAddr...`
 - `npm://@openclaw/weather-skill`
 - `did://did:key:z6Mk...`
 
@@ -205,7 +207,7 @@ A **Context** describes the circumstances of a trust query, enabling risk-adjust
 │  │ GitHub │ │Moltbook│ │ClawHub │ │ ERC-8004 │  │
 │  └────────┘ └────────┘ └────────┘ └──────────┘  │
 │  ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────┐  │
-│  │  npm   │ │  YARA  │ │  TEE   │ │  Manual  │  │
+│  │  SATI  │ │  npm   │ │  YARA  │ │  TEE     │  │
 │  └────────┘ └────────┘ └────────┘ └──────────┘  │
 └─────────────────────────────────────────────────┘
           │
@@ -940,6 +942,7 @@ Two identities are linked when an entity proves ownership of both through platfo
 | `moltbook` | Signed challenge using Moltbook API key |
 | `clawhub` | Same as GitHub (ClawHub skills are GitHub repos) |
 | `erc8004` | EIP-712 signed message from the agent's registered wallet |
+| `sati` | Solana wallet signature (Ed25519) of a challenge string |
 | `npm` | npm provenance attestation linking to GitHub |
 | `did` | DID Authentication proof |
 
@@ -957,7 +960,7 @@ Identity links are public by default — linking is an explicit act of associati
 
 ## 9. Web3 Bridge
 
-### 9.1 ERC-8004 Integration
+### 9.1 ERC-8004 Integration (Ethereum/L2)
 
 ERC-8004 defines three on-chain registries: Identity, Reputation, and Validation. Aegis integrates with all three:
 
@@ -969,7 +972,25 @@ ERC-8004 defines three on-chain registries: Identity, Reputation, and Validation
 - Aegis can write trust evaluations to the ERC-8004 Reputation Registry
 - This bridges web2 trust signals onto the chain for composability with other on-chain systems
 
-### 9.2 Attestation Anchoring
+### 9.2 SATI Integration (Solana)
+
+[SATI](https://github.com/cascade-protocol/sati) (Solana Agent Trust Infrastructure) implements ERC-8004-compatible agent trust on Solana using Token-2022 NFTs for identity and compressed attestations for reputation.
+
+**As a signal consumer:**
+- The SATI provider reads agent registration, feedback history, and reputation summaries from Solana
+- SATI's blind feedback model (agents commit to interactions before knowing the score) provides higher-confidence reputation signals than standard feedback — agents cannot cherry-pick positive reviews
+- Blind feedback signals SHOULD receive a confidence bonus (1.2x) over standard feedback signals
+
+**As a signal producer:**
+- Aegis can submit attestations to SATI's on-chain attestation system (~$0.002 per entry)
+- Sub-second finality (~400ms) makes Solana suitable for high-frequency trust operations
+
+**Cross-chain identity:**
+- Both ERC-8004 and SATI use [CAIP-2](https://github.com/ChainAgnostic/CAIPs/blob/main/CAIPs/caip-2.md) chain identifiers, enabling cross-chain identity resolution
+- An agent registered on both chains (`erc8004://eip155:8453:0x742.../42` and `sati://solana:EtWTRA.../MintAddr`) can link these identities through Aegis, aggregating reputation from both ecosystems
+- This cross-chain aggregation is a capability that neither ERC-8004 nor SATI can provide independently
+
+### 9.3 Attestation Anchoring
 
 When a trust evaluation warrants on-chain permanence (high-stakes decisions, regulatory requirements, or cross-organizational trust), it can be anchored as an attestation:
 
@@ -979,7 +1000,7 @@ When a trust evaluation warrants on-chain permanence (high-stakes decisions, reg
 4. The contract emits an event with the attestation hash
 5. The attestation is verifiable via `GET /v1/attest/verify/{hash}`
 
-### 9.3 x402 Integration
+### 9.4 x402 Integration
 
 For premium trust queries (e.g., queries requiring staked re-execution or TEE verification), Aegis MAY support x402 payment:
 
@@ -1059,10 +1080,12 @@ For premium trust queries (e.g., queries requiring staked re-execution or TEE ve
 
 ### Phase 3: Web3 Bridge
 
-- ERC-8004 signal provider (read on-chain reputation)
-- Attestation anchoring (write trust scores on-chain)
-- On-chain identity linking via EIP-712 signatures
-- Base L2 deployment for low-cost attestations
+- ERC-8004 signal provider (read Ethereum/L2 on-chain reputation)
+- SATI signal provider (read Solana on-chain reputation, blind feedback)
+- Cross-chain identity resolution via CAIP-2
+- Attestation anchoring (write trust scores to ERC-8004 and/or SATI)
+- On-chain identity linking via EIP-712 (Ethereum) and Ed25519 (Solana) signatures
+- Base L2 and Solana deployment for low-cost attestations
 
 ### Phase 4: Advanced Trust
 
@@ -1081,7 +1104,8 @@ For premium trust queries (e.g., queries requiring staked re-execution or TEE ve
 | `github` | GitHub user or organization | `tankcdr` |
 | `moltbook` | Moltbook agent profile | `nyx_clawd` |
 | `clawhub` | ClawHub skill | `eudaemon_0/security-scanner` |
-| `erc8004` | ERC-8004 registered agent | `eip155:8453:0x742.../42` |
+| `erc8004` | ERC-8004 registered agent (Ethereum/L2) | `eip155:8453:0x742.../42` |
+| `sati` | SATI registered agent (Solana) | `solana:EtWTRA.../MintAddr` |
 | `npm` | npm package | `@openclaw/weather-skill` |
 | `did` | Decentralized Identifier | `did:key:z6Mk...` |
 | `agentmail` | AgentMail address | `agent@agentmail.to` |
@@ -1101,6 +1125,7 @@ New namespaces can be proposed via pull request to the specification.
 | Security | `permission_review` | Analysis of requested permissions |
 | Quality | `repo_health` | Repository maintenance signals |
 | Quality | `documentation` | Documentation completeness |
+| Validation | `blind_feedback` | Committed-before-outcome reputation (SATI) |
 | Validation | `staked_reexecution` | Re-execution with economic stake |
 | Validation | `tee_attestation` | TEE-verified execution |
 | Validation | `zkml_proof` | Zero-knowledge ML proof |

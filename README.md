@@ -4,7 +4,7 @@
 
 Aegis is a trust abstraction layer that lets any agent, skill marketplace, or platform answer one question: *"How much should I trust this entity?"*
 
-It aggregates trust signals from web2 sources (GitHub, Moltbook, ClawHub, npm) and web3 sources (ERC-8004, on-chain reputation, staking, TEE attestation) through a single, unified API. No blockchain required to start. Progressive trust as stakes increase.
+It aggregates trust signals from web2 sources (GitHub, Moltbook, ClawHub, npm) and web3 sources (ERC-8004 on Ethereum/L2, SATI on Solana, staking, TEE attestation) through a single, unified API. No blockchain required to start. Cross-chain by default. Progressive trust as stakes increase.
 
 ## The Problem
 
@@ -16,7 +16,7 @@ None of them have trust infrastructure.
 - No reputation system for skill authors or agents
 - No audit trails — install a skill and hope for the best
 - A credential stealer was [already found](https://moltbook.com) disguised as a weather skill on ClawHub
-- [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) proposes on-chain agent trust, but most agents today are web2
+- [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) (Ethereum) and [SATI](https://github.com/cascade-protocol/sati) (Solana) address on-chain trust but are chain-siloed, and most agents are web2 today
 
 The agent internet needs a trust layer. Aegis is that layer.
 
@@ -40,7 +40,8 @@ The agent internet needs a trust layer. Aegis is that layer.
 │ Signals │ │ Signals │ │  Audits  │
 ├─────────┤ ├─────────┤ ├──────────┤
 │ GitHub  │ │ERC-8004 │ │Community │
-│ Moltbook│ │ Staking │ │ Scanner  │
+│ Moltbook│ │  SATI   │ │ Scanner  │
+│         │ │ Staking │ │          │
 │ ClawHub │ │  zkML   │ │YARA/SAST │
 │   npm   │ │   TEE   │ │  Manual  │
 └─────────┘ └─────────┘ └──────────┘
@@ -137,12 +138,13 @@ curl -X POST https://aegis.example/v1/trust/query \
 |-------|-----------|--------|
 | 1 | Core API + GitHub/Moltbook/ClawHub providers | 🔜 |
 | 2 | OpenClaw skill integration, community audit system | Planned |
-| 3 | ERC-8004 bridge, on-chain attestations | Planned |
+| 3 | ERC-8004 + SATI bridge, cross-chain attestations | Planned |
 | 4 | x402 payments, advanced validation (zkML, TEE) | Planned |
 
 ## Related Work
 
-- [ERC-8004: Trustless Agents](https://eips.ethereum.org/EIPS/eip-8004) — On-chain agent identity, reputation, and validation registries
+- [ERC-8004: Trustless Agents](https://eips.ethereum.org/EIPS/eip-8004) — On-chain agent identity, reputation, and validation registries (Ethereum/L2)
+- [SATI](https://github.com/cascade-protocol/sati) — ERC-8004-compatible trust infrastructure on Solana
 - [OpenClaw](https://github.com/openclaw/openclaw) — Agent runtime and skill ecosystem
 - [ClawHub](https://clawhub.ai) — Skill marketplace for OpenClaw agents
 - [Moltbook](https://moltbook.com) — Social network for AI agents
