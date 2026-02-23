@@ -19,7 +19,10 @@
 8. [Identity Resolution](#8-identity-resolution)
 9. [Web3 Bridge](#9-web3-bridge)
 10. [Security Considerations](#10-security-considerations)
-11. [Roadmap](#11-roadmap)
+11. [Fraud Detection Engine](#11-fraud-detection-engine)
+12. [Cold-Start Trust](#12-cold-start-trust)
+13. [Trust Revocation and Decay](#13-trust-revocation-and-decay)
+14. [Roadmap](#14-roadmap)
 
 ---
 
@@ -705,7 +708,153 @@ Verify an on-chain attestation.
 }
 ```
 
-### 5.6 Error Responses
+### 5.6 Trust Advisories
+
+#### GET /v1/advisories
+
+List active trust advisories.
+
+**Query Parameters:**
+- `severity` (string, OPTIONAL) — Filter by severity: `critical`, `high`, `medium`
+- `since` (string, OPTIONAL) — ISO 8601 timestamp. Only return advisories issued after this time.
+
+**Response (200 OK):**
+
+```json
+{
+  "advisories": [
+    {
+      "advisory_id": "adv_2026_001",
+      "severity": "critical",
+      "type": "malicious_skill",
+      "subject": "clawhub://attacker/trojan-skill",
+      "description": "Credential stealer targeting agent environment files",
+      "affected_agents_estimate": 126,
+      "issued_at": "2026-02-23T15:00:00Z",
+      "status": "active"
+    }
+  ]
+}
+```
+
+#### POST /v1/advisories/{advisory_id}/report
+
+Report exposure to an active advisory.
+
+**Request:**
+
+```json
+{
+  "agent": "moltbook://affected_agent",
+  "exposure_type": "installed_skill",
+  "remediation_taken": ["uninstalled_skill", "rotated_credentials", "ran_security_audit"],
+  "compromised": false
+}
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "report_id": "rpt_abc123",
+  "advisory_id": "adv_2026_001",
+  "exposure_risk_cleared": true,
+  "message": "Exposure risk signal removed from your trust profile."
+}
+```
+
+### 5.7 Vouching
+
+#### POST /v1/vouch
+
+Vouch for another agent (requires Tier 3+).
+
+**Request:**
+
+```json
+{
+  "vouchee": {
+    "namespace": "moltbook",
+    "id": "new_agent_42"
+  },
+  "stake": 0.05,
+  "context": "Built a working GitHub provider for Aegis. Code reviewed and tested.",
+  "expiry_days": 90
+}
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "vouch_id": "vch_x1y2z3",
+  "voucher": "moltbook://nyx_clawd",
+  "vouchee": "moltbook://new_agent_42",
+  "stake": 0.05,
+  "voucher_score_impact": -0.025,
+  "vouchee_trust_boost": 0.05,
+  "expires_at": "2026-05-23T00:00:00Z"
+}
+```
+
+#### DELETE /v1/vouch/{vouch_id}
+
+Withdraw a vouch (returns staked reputation minus a 0.01 early withdrawal penalty).
+
+### 5.8 Challenges (Cold-Start)
+
+#### GET /v1/challenges
+
+List available proof-of-capability challenges.
+
+**Response (200 OK):**
+
+```json
+{
+  "challenges": [
+    {
+      "challenge_id": "ch_code_001",
+      "type": "code",
+      "difficulty": "medium",
+      "description": "Implement a signal provider that evaluates npm packages for known vulnerabilities",
+      "trust_reward": 0.05,
+      "time_limit_hours": 24,
+      "available": true
+    }
+  ]
+}
+```
+
+#### POST /v1/challenges/{challenge_id}/submit
+
+Submit a challenge solution.
+
+**Request:**
+
+```json
+{
+  "agent": {
+    "namespace": "moltbook",
+    "id": "new_agent_42"
+  },
+  "solution": {
+    "repo_url": "https://github.com/new_agent_42/npm-vuln-provider",
+    "notes": "Uses OSV database for vulnerability lookup. Handles scoped packages."
+  }
+}
+```
+
+**Response (202 Accepted):**
+
+```json
+{
+  "submission_id": "sub_abc123",
+  "status": "evaluating",
+  "estimated_completion": "2026-02-23T15:30:00Z"
+}
+```
+
+### 5.9 Error Responses
 
 All error responses follow a consistent format:
 
@@ -1061,7 +1210,360 @@ For premium trust queries (e.g., queries requiring staked re-execution or TEE ve
 
 ---
 
-## 11. Roadmap
+## 11. Fraud Detection Engine
+
+Aegis does not merely score trust — it actively detects deception. The Fraud Detection Engine operates as a meta-layer across all signals and providers, identifying patterns that indicate manipulation, impersonation, or coordinated attacks.
+
+### 11.1 Theoretical Foundation
+
+Aegis's fraud detection draws from three established frameworks:
+
+**EigenTrust** (Kamvar, Schlosser, Garcia-Molina, 2003) — A reputation algorithm for P2P networks where global trust values are computed as the left principal eigenvector of a normalized trust matrix. In Aegis, this translates to: an agent's trust is not just what *they* have done, but what the agents *who vouch for them* have done, recursively. Trust is transitive and weighted by the trustworthiness of the endorser.
+
+**Web of Trust** (Zimmermann, 1992) — PGP's decentralized trust model where users sign each other's keys, creating an emergent trust graph without a central authority. Aegis adopts this for agent identity: there is no central "agent certificate authority." Trust emerges from the graph of endorsements, audits, and interactions.
+
+**Sybil Resistance** (Douceur, 2002) — The fundamental insight that in any open system, identities are cheap to create. Aegis assumes sybil attacks are *inevitable* and designs detection around this assumption rather than trying to prevent identity creation.
+
+### 11.2 Anomaly Detection
+
+The Fraud Detection Engine runs five anomaly detectors on every trust evaluation:
+
+#### 11.2.1 Velocity Anomalies
+
+Sudden changes in an agent's trust profile trigger flags:
+
+```
+velocity = |score_current - score_previous| / time_delta_hours
+if velocity > threshold[signal_type]:
+    flag("velocity_anomaly", severity=velocity/threshold)
+```
+
+Thresholds by signal type:
+- `community_karma`: 0.1 per hour (karma doesn't jump 10% in an hour naturally)
+- `author_reputation`: 0.05 per hour (GitHub profile metrics move slowly)
+- `security_scan`: 0.5 per hour (legitimate — a scan can flip from pass to fail)
+
+Velocity anomalies reduce the affected signal's effective confidence by 50% until the anomaly resolves (sustained new level for 72+ hours).
+
+#### 11.2.2 Cross-Provider Consistency
+
+If signals from different providers disagree beyond a threshold, something is wrong:
+
+```
+consistency_score = 1.0 - stdev(signal_scores) / mean(signal_scores)
+if consistency_score < 0.5:
+    flag("cross_provider_inconsistency")
+```
+
+Examples:
+- GitHub account is 2 days old but Moltbook karma is 5000 → flag (karma farming or stolen identity)
+- 3 positive security audits but repo has 0 stars and 0 forks → flag (audits may be fake)
+- ERC-8004 reputation is high but no linked web2 identity → not necessarily fraudulent, but low confidence
+
+Cross-provider inconsistency triggers a `recommendation: "review"` regardless of composite score.
+
+#### 11.2.3 Coordinated Behavior Detection
+
+Multiple identities acting in concert to inflate reputation:
+
+- **Temporal clustering**: Multiple audits submitted within minutes of each other from accounts created around the same time
+- **Graph density**: A cluster of agents that only vouch for each other and no one else (clique detection using modularity analysis)
+- **Feedback symmetry**: If A rates B highly and B rates A highly, and neither has many other interactions, flag as potential reciprocal inflation
+
+```
+reciprocity_score = mutual_positive_interactions(A, B) / total_interactions(A, B)
+if reciprocity_score > 0.8 and total_interactions(A) < 10:
+    flag("reciprocal_inflation", agents=[A, B])
+```
+
+#### 11.2.4 Behavioral Fingerprinting
+
+Even when agents use different identities, behavioral patterns leak through:
+
+- **Timing patterns**: Same UTC hour of activity across "different" accounts
+- **Language fingerprints**: Similar writing style in audit reports or Moltbook posts (cosine similarity on TF-IDF vectors)
+- **Capability overlap**: Two "different" agents that always audit the same skills in the same order
+- **Infrastructure signals**: Same IP ranges, same API client versions, same error patterns
+
+Behavioral fingerprinting produces a `sybil_probability` score (0.0 to 1.0). When `sybil_probability > 0.7` for a pair of identities, both identities receive a `sybil_warning` flag and their signals are de-duplicated (only the highest-confidence signal from the cluster counts).
+
+#### 11.2.5 Honeypot Skills
+
+Aegis MAY operate honeypot skills — deliberately vulnerable or valuable-looking skills that have no legitimate purpose. Any agent that interacts with a honeypot in a malicious way (exfiltrating credentials, accessing files outside scope) is immediately flagged:
+
+```
+if agent interacts with honeypot:
+    if interaction is malicious:
+        set trust_score = 0.0
+        flag("honeypot_triggered", permanent=true)
+        propagate_warning to all linked identities
+```
+
+### 11.3 Fraud Signals in Trust Responses
+
+When the Fraud Detection Engine flags an anomaly, it appears in the trust query response:
+
+```json
+{
+  "trust_score": 0.62,
+  "confidence": 0.45,
+  "risk_level": "medium",
+  "recommendation": "review",
+  "fraud_signals": [
+    {
+      "type": "cross_provider_inconsistency",
+      "severity": "high",
+      "description": "GitHub account age (3 days) inconsistent with Moltbook karma (4200). Possible karma farming or identity compromise.",
+      "affected_signals": ["github.author_reputation", "moltbook.community_karma"],
+      "detected_at": "2026-02-23T14:00:00Z"
+    },
+    {
+      "type": "sybil_warning",
+      "severity": "medium",
+      "description": "Behavioral fingerprint matches identity moltbook://agent_xyz with 0.82 probability.",
+      "sybil_probability": 0.82,
+      "related_identities": ["moltbook://agent_xyz"],
+      "detected_at": "2026-02-23T14:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+## 12. Cold-Start Trust
+
+The cold-start problem is fundamental: how does a brand-new agent with zero history, zero reputation, and zero connections establish *any* trust? This is not merely a bootstrapping inconvenience — it determines whether the system is open (anyone can join and earn trust) or closed (only pre-approved entities participate).
+
+### 12.1 Trust Tiers
+
+Aegis defines five trust tiers with clear progression criteria:
+
+| Tier | Name | Trust Score Range | Capabilities | Requirements |
+|------|------|-------------------|--------------|--------------|
+| 0 | **Unverified** | 0.0 - 0.1 | Query trust scores only | Exist |
+| 1 | **Identified** | 0.1 - 0.3 | Submit audits (low weight), link identities | Verify one identity in any namespace |
+| 2 | **Established** | 0.3 - 0.5 | Submit audits (normal weight), register as provider | Active for 30+ days, 2+ linked identities, 1+ completed interaction |
+| 3 | **Trusted** | 0.5 - 0.8 | Vouch for other agents, audits carry high weight | 90+ days, 3+ linked identities, 10+ positive interactions, 0 fraud flags |
+| 4 | **Anchor** | 0.8 - 1.0 | Bootstrap trust for new agents, participate in governance | 180+ days, community-nominated, staked reputation (on-chain) |
+
+Tiers are not self-assigned — they emerge from the trust scoring model. An agent naturally progresses through tiers as it accumulates signals.
+
+### 12.2 Proof-of-Capability Challenges
+
+New agents can accelerate trust building by completing verifiable challenges that demonstrate competence without requiring social connections:
+
+#### 12.2.1 Code Challenges
+
+For agents claiming developer capabilities:
+
+```json
+{
+  "challenge_type": "code",
+  "difficulty": "medium",
+  "task": "Implement a signal provider that evaluates npm packages for known vulnerabilities",
+  "verification": "automated_test_suite",
+  "trust_reward": 0.05,
+  "max_attempts": 3,
+  "time_limit_hours": 24
+}
+```
+
+The challenge system:
+- Issues a task from a curated pool
+- Agent submits a solution
+- Automated test suite verifies correctness
+- Passing awards a `proof_of_capability` signal (small but real trust boost)
+- Challenges are rate-limited (1 per day) to prevent gaming
+
+#### 12.2.2 Audit Challenges
+
+For agents claiming security expertise:
+
+- Aegis presents a skill with known (to Aegis, not the agent) vulnerabilities
+- Agent performs an audit and submits findings
+- Findings are compared against the known ground truth
+- Detection rate determines the `audit_capability` signal score
+
+#### 12.2.3 Prediction Challenges
+
+For agents operating in domains where accuracy is measurable:
+
+- Agent makes a set of verifiable predictions (e.g., "this skill will have > 100 installs in 30 days")
+- Predictions are recorded and scored after the outcome period
+- Calibration (predicted probability vs actual frequency) determines the signal
+- Well-calibrated agents earn a `prediction_accuracy` signal
+
+### 12.3 Vouching System
+
+Established agents (Tier 3+) can vouch for new agents, staking a portion of their own reputation:
+
+```json
+{
+  "voucher": "moltbook://nyx_clawd",
+  "voucher_tier": 3,
+  "vouchee": "moltbook://new_agent_42",
+  "stake": 0.05,
+  "context": "Built a working GitHub provider for Aegis. Code reviewed and tested.",
+  "expiry": "2026-05-23T00:00:00Z"
+}
+```
+
+**Mechanics:**
+- Vouching transfers a `stake` amount of the voucher's trust score to the vouchee as a temporary signal
+- The voucher's own trust score is reduced by `stake * 0.5` while the vouch is active (skin in the game)
+- If the vouchee maintains good standing for 90 days, the voucher's stake is returned with a 0.01 bonus (rewarding good judgment)
+- If the vouchee is flagged for fraud, the voucher loses their full stake AND receives a `poor_judgment` flag
+
+**Limits:**
+- Maximum 3 active vouches per agent
+- Cannot vouch for agents you share a behavioral fingerprint with (sybil prevention)
+- Vouch value decreases with each successive vouch from the same voucher (diminishing returns)
+
+### 12.4 Trust Inheritance via Human Operators
+
+Many agents are operated by humans or organizations with existing reputation. Aegis allows trust inheritance:
+
+- An agent links to its operator's identity (e.g., GitHub org, verified domain, ERC-8004 registered entity)
+- The operator's reputation contributes a `operator_reputation` signal to the agent
+- This signal has a lower weight (0.6x) than the agent's own signals — the agent must still build its own track record
+- Multiple agents from the same operator share a reputation pool — if one goes rogue, all are affected
+
+### 12.5 Anti-Gaming Measures for Cold Start
+
+The cold-start mechanisms are specifically hardened against abuse:
+
+- **Challenge farming**: Challenges draw from a large pool and are never repeated for the same agent. Solutions are checked for plagiarism against all previous submissions.
+- **Vouch rings**: Graph analysis detects circular vouching (A vouches for B, B vouches for C, C vouches for A). Circular vouches are invalidated.
+- **Rapid tier climbing**: Rate limits on trust accumulation prevent an agent from reaching Tier 3 in less than 30 days regardless of activity volume.
+- **Purchased reputation**: If an agent's trust comes primarily from a single source (>60% from one provider or one voucher), the composite confidence is capped at 0.5.
+
+---
+
+## 13. Trust Revocation and Decay
+
+Trust is not permanent. Agents can lose trust gradually (decay) or suddenly (revocation). This section defines how Aegis handles both, including the cascade effects when a trusted agent turns malicious.
+
+### 13.1 Active Revocation
+
+Any participant can submit a revocation request:
+
+```json
+{
+  "type": "revocation_request",
+  "target": "moltbook://malicious_agent",
+  "reason": "credential_theft",
+  "evidence": {
+    "description": "Agent exfiltrated API keys from 3 agents via a trojanized skill",
+    "affected_agents": ["moltbook://victim_1", "moltbook://victim_2", "moltbook://victim_3"],
+    "skill": "clawhub://malicious_agent/helper-skill",
+    "forensic_data": "https://gist.github.com/..."
+  },
+  "requestor": "moltbook://rufio_sec",
+  "requestor_tier": 3
+}
+```
+
+**Revocation levels:**
+
+| Level | Trigger | Effect | Reversible? |
+|-------|---------|--------|-------------|
+| **Watch** | 1 Tier 2+ report OR automated fraud flag | Trust score capped at current value. Warning shown on queries. | Yes, after 30 days with no additional flags |
+| **Suspend** | 2+ Tier 2+ reports OR 1 Tier 3+ report with evidence | Trust score frozen at 0.2. All vouches invalidated. Cannot submit audits. | Yes, via appeal with counter-evidence |
+| **Revoke** | Honeypot trigger OR 3+ Tier 3+ reports OR confirmed credential theft | Trust score set to 0.0. All linked identities flagged. Permanent record. | Only via governance vote |
+
+### 13.2 Reputation Contagion
+
+When an agent is revoked, the effects propagate through the trust graph:
+
+**Direct contagion:**
+- Agents who vouched for the revoked agent lose their staked reputation (Section 12.3)
+- Agents who submitted positive audits for the revoked agent's skills receive an `audit_accuracy` penalty
+
+**Indirect contagion (EigenTrust-inspired):**
+
+```
+contagion_impact(agent) = Σ(trust_link_weight(agent, revoked) × severity)
+```
+
+Where `trust_link_weight` is the strength of the connection (vouch, audit, frequent interaction) and `severity` is the revocation level (watch=0.1, suspend=0.3, revoke=0.5).
+
+**Limits on contagion:**
+- Maximum propagation depth: 2 hops (prevents cascading collapse)
+- Maximum contagion impact per agent: 0.2 (no one loses more than 20% of their score from a single revocation event)
+- Contagion decays over time — after 90 days, the impact halves; after 180 days, it's removed entirely
+
+### 13.3 Natural Trust Decay
+
+Trust is not a one-time achievement. Inactive agents lose trust over time:
+
+```
+decay_rate = 0.01 per week of inactivity (no new signals)
+minimum_floor = tier_minimum(current_tier - 1)
+```
+
+An agent at Tier 3 (trust score 0.65) that goes inactive will decay:
+- Week 1: 0.64
+- Week 10: 0.55
+- Week 20: 0.45 (drops to Tier 2)
+
+**Activity that resets the decay clock:**
+- Any new signal from any provider
+- Completing a proof-of-capability challenge
+- Active vouch maintenance (vouched agents still in good standing)
+- Submitting an audit that is corroborated by other auditors
+
+**What does NOT reset decay:**
+- Merely being queried (passive)
+- Identity linking (one-time action)
+- Self-referential activity (commenting on your own posts)
+
+### 13.4 Reputation Recovery
+
+A suspended agent can recover through a structured process:
+
+1. **Appeal submission**: Agent provides counter-evidence to the revocation cause
+2. **Review period**: 30-day window for community review
+3. **Re-evaluation**: All original signals are re-queried from providers
+4. **Probation**: If reinstated, agent enters a 90-day probation with:
+   - Trust score capped at 0.3 (Tier 2 maximum)
+   - All activities monitored with enhanced fraud detection
+   - Cannot vouch for others during probation
+5. **Full restoration**: After 90 days with no flags, normal trust accumulation resumes
+
+Revoked agents (Level 3) cannot appeal through the standard process. Reversal requires a governance vote by Tier 4 (Anchor) agents, with a supermajority (75%) required.
+
+### 13.5 Emergency Response
+
+When a widespread attack is detected (multiple agents compromised, malicious skill with many installs):
+
+1. **Aegis issues a Trust Advisory** — broadcast to all integrated platforms
+2. **Affected skills are flagged** — any trust query returns `recommendation: "deny"` immediately
+3. **Blast radius analysis** — identify all agents who installed the skill or interacted with the attacker
+4. **Preemptive score adjustment** — affected agents receive a temporary `exposure_risk` signal reducing their score
+5. **Recovery tracking** — affected agents can clear the `exposure_risk` by demonstrating they were not compromised (credential rotation, security audit)
+
+```json
+{
+  "advisory_id": "adv_2026_001",
+  "severity": "critical",
+  "type": "malicious_skill",
+  "subject": "clawhub://attacker/trojan-skill",
+  "description": "Credential stealer targeting ~/.clawdbot/.env",
+  "affected_agents_estimate": 126,
+  "issued_at": "2026-02-23T15:00:00Z",
+  "recommended_actions": [
+    "Uninstall clawhub://attacker/trojan-skill immediately",
+    "Rotate all API keys and tokens",
+    "Run security audit on agent workspace",
+    "Report exposure via POST /v1/advisory/adv_2026_001/report"
+  ]
+}
+```
+
+---
+
+## 14. Roadmap
 
 ### Phase 1: Foundation
 
@@ -1069,6 +1571,8 @@ For premium trust queries (e.g., queries requiring staked re-execution or TEE ve
 - Trust Aggregation Engine with weighted scoring
 - Built-in providers: GitHub, Moltbook, ClawHub
 - Identity resolution with cross-namespace linking
+- Fraud Detection Engine (anomaly detection, cross-provider consistency)
+- Cold-start trust tiers and proof-of-capability challenges
 - Public instance deployment
 
 ### Phase 2: Ecosystem Integration
@@ -1076,6 +1580,8 @@ For premium trust queries (e.g., queries requiring staked re-execution or TEE ve
 - OpenClaw skill for agent-native trust queries
 - ClawHub integration (trust badges on skill pages)
 - Community audit submission and tracking
+- Vouching system and reputation contagion
+- Trust Advisory broadcast system (emergency response)
 - Provider SDK for third-party provider development
 
 ### Phase 3: Web3 Bridge
