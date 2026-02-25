@@ -7,6 +7,8 @@ import type { Action, Subject } from '@aegis-protocol/core';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
+import { registerAttestRoutes } from './routes/attest.js';
+import { storeStats } from './x402/store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -158,6 +160,10 @@ server.post('/v1/identity/verify', async (request, reply) => {
   });
 });
 
+// ── x402 attestation routes ───────────────────────────────────────────────────
+const BASE_URL = process.env['BASE_URL'] ?? 'https://trstlyr.ai';
+await registerAttestRoutes(server, engine, BASE_URL);
+
 // POST /v1/audit/submit — SPEC §5.5 (Phase 2)
 server.post('/v1/audit/submit', async (_request, reply) => {
   return reply.code(501).send({ error: 'Audit submissions — Phase 2' });
@@ -193,10 +199,16 @@ server.get('/health', async () => {
   const providerHealth = await engine.health();
   return {
     status: 'ok',
-    version: '0.1.0',
+    version: '0.2.0',
     providers: engine.providerNames(),
     provider_health: providerHealth,
     eas_schema_uid: easSchemaUid ?? null,
+    x402: {
+      attestation_price_usdc: '0.01',
+      payment_receiver: process.env['PAYMENT_WALLET'] ?? '0xAaa00Fef6CD6a7B41e30c25b8655D599f462Cc43',
+      network: 'Base Mainnet',
+      ...storeStats(),
+    },
     uptime_seconds: process.uptime(),
   };
 });

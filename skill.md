@@ -224,12 +224,53 @@ Optional env vars (all degrade gracefully if unset):
 
 ---
 
+## Anchor a Trust Score On-Chain (EAS Attestation)
+
+Want permanent, verifiable proof of a trust evaluation on Base Mainnet? Use the attest endpoint.
+
+**First attestation per subject: FREE. Subsequent: $0.01 USDC via x402.**
+
+```bash
+# First call — free, no payment needed
+curl -X POST https://trstlyr.ai/v1/attest \
+  -H "Content-Type: application/json" \
+  -d '{"subject": "github:tankcdr"}'
+```
+
+Response:
+```json
+{
+  "subject": "github:tankcdr",
+  "trust_score": 50.1,
+  "confidence": 0.72,
+  "risk_level": "medium",
+  "attestation_uid": "0xabc123...",
+  "attestation_url": "https://base.easscan.org/attestation/view/0xabc123...",
+  "on_chain": true,
+  "payment": { "free_tier": true }
+}
+```
+
+**Second call and beyond — x402 kicks in:**
+
+The server responds with `402 Payment Required` + `X-PAYMENT-REQUIRED` header (base64 JSON) containing:
+- Amount: `10000` (= $0.01 USDC, 6 decimals)
+- Token: USDC on Base Mainnet (`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`)
+- Receiver: `0xAaa00Fef6CD6a7B41e30c25b8655D599f462Cc43`
+
+Sign an EIP-3009 `transferWithAuthorization`, retry with `X-PAYMENT` header — attestation is written and settled in one round trip.
+
+Attestations are written to EAS schema `0xfff1179b55bf0717c0a071da701b4f597a6bfe0669bcb1daca6a66f0e14d407d` on Base Mainnet and are permanently verifiable on [base.easscan.org](https://base.easscan.org).
+
+---
+
 ## Rate Limits
 
 | Plan | Requests/minute |
 |------|----------------|
 | Public (no key) | 30 |
 | Authenticated | 300 |
+| x402 | Unlimited (pay per attest) |
 
 ---
 
