@@ -1,5 +1,12 @@
 # Signal Providers Guide
 
+**Version:** 0.4.0-draft (aligned with SPEC v0.4.0)
+**Last Updated:** 2026-02-25
+
+This guide is the practical companion to **[SPEC.md §6 (Signal Provider Interface)](SPEC.md#6-signal-provider-interface)** and **[Appendix B (Signal Type Taxonomy)](SPEC.md#appendix-b-signal-type-taxonomy)**. See the spec for the formal protocol requirements and compliance rules.
+
+---
+
 ## Overview
 
 Signal providers are the data backbone of Aegis. Each provider is a module that evaluates a subject (agent, skill, or interaction) and returns structured trust signals with evidence. Providers are pluggable — anyone can build and register one.
@@ -248,3 +255,89 @@ After registration, remote providers go through a verification process:
 3. **Manual review** — For public instances, a maintainer reviews the provider
 
 Once verified, the provider's status changes from `pending_verification` to `active` and it begins receiving evaluation requests during trust queries.
+
+---
+
+## Remote Providers (HTTP)
+
+Third-party providers can be registered at runtime via the Aegis API (SPEC §5.3 `POST /v1/providers/register`). They must expose these four HTTP endpoints:
+
+| Method | Path | Returns | Description |
+|--------|------|---------|-------------|
+| `GET` | `/metadata` | `ProviderMetadata` | Provider capabilities and rate limits |
+| `POST` | `/evaluate` | `Signal[]` | Evaluate a subject and return trust signals |
+| `GET` | `/health` | `HealthStatus` | Operational status of the provider |
+| `POST` | `/supported` | `boolean` | Can this provider evaluate the given subject? |
+
+See **[SPEC §6.3](SPEC.md#6-signal-provider-interface)** for full details and authentication options.
+
+### Minimal Express.js Example
+
+```typescript
+import express from 'express';
+
+const app = express();
+app.use(express.json());
+
+app.get('/metadata', (req, res) => res.json({
+  name: 'my_provider',
+  version: '1.0.0',
+  description: 'Example remote provider',
+  supported_subjects: ['agent', 'skill'],
+  supported_namespaces: ['github'],
+  signal_types: [{ type: 'author_reputation', description: 'GitHub author signals' }],
+  rate_limit: { requests_per_minute: 60, burst: 10 }
+}));
+
+app.post('/evaluate', async (req, res) => {
+  const { subject, context } = req.body;
+  // ... compute signals ...
+  res.json([{
+    provider: 'my_provider',
+    signal_type: 'author_reputation',
+    score: 0.75,
+    confidence: 0.80,
+    evidence: { /* ... */ },
+    timestamp: new Date().toISOString(),
+    ttl: 86400
+  }]);
+});
+
+app.get('/health', (req, res) => res.json({
+  status: 'healthy',
+  last_check: new Date().toISOString(),
+  avg_response_ms: 120,
+  error_rate_1h: 0.0
+}));
+
+app.post('/supported', (req, res) => {
+  const { subject } = req.body;
+  res.json(subject.namespace === 'github');
+});
+
+app.listen(3000);
+```
+
+### Security Requirements for Remote Providers
+
+- **TLS required** — All endpoints MUST be served over HTTPS
+- **Response timeout** — MUST respond within 10 seconds (configurable per Aegis instance)
+- **Honest confidence** — Low data coverage MUST be reflected in low confidence values; do not report `confidence > 0.5` for a single data point
+- **Graceful errors** — Return an error signal rather than a 5xx response where possible; Aegis marks non-responding providers as `unresolved`, not failed
+- **Rate limit respect** — Honor the `rate_limit` declared in your metadata; Aegis will not throttle beyond it but you are responsible for upstream API limits
+
+### Provider Health Monitoring
+
+Aegis tracks provider health continuously:
+
+- **Periodic health checks** — `GET /health` called every 60 seconds
+- **Reliability metrics** — Aegis records response time and error rate per provider
+- **Automatic demotion** — Providers with `error_rate_1h > 0.1` are demoted to `degraded` and their signals receive a 0.5× weight penalty
+- **Suspension** — Providers with `error_rate_1h > 0.5` or sustained score distribution anomalies (see SPEC §11.2.2) are suspended automatically
+
+Monitor your provider's standing via:
+
+```bash
+curl https://aegis.example/v1/providers/my_provider/health \
+  -H "Authorization: Bearer ${AEGIS_API_KEY}"
+```
