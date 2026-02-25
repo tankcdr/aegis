@@ -341,3 +341,105 @@ Monitor your provider's standing via:
 curl https://aegis.example/v1/providers/my_provider/health \
   -H "Authorization: Bearer ${AEGIS_API_KEY}"
 ```
+
+---
+
+## Best Practices & New Spec Requirements (v0.4+)
+
+### Honest Confidence (SPEC §7.2)
+
+If you only have one data point for a subject, set `confidence ≤ 0.5`. The Aegis scoring model treats confidence as the `1 - uncertainty` term in a Subjective Logic opinion tuple — overstating confidence inflates composite scores in ways that cannot be corrected downstream.
+
+```typescript
+// ✅ Correct — one data point = low confidence
+signals.push({
+  score: 0.85,
+  confidence: 0.40,   // single GitHub profile fetch, limited history
+  ...
+});
+
+// ❌ Wrong — fabricating certainty you don't have
+signals.push({
+  score: 0.85,
+  confidence: 0.95,   // you only looked at one thing
+  ...
+});
+```
+
+Confidence SHOULD increase with: number of independent data points, account age, corroboration from multiple upstream sources, and recency of the data.
+
+### Volatility Awareness (SPEC §7.9)
+
+Subjects with ≥ 5 interactions in 30 days have an Evolutionary Stability Adjustment applied to their composite score:
+
+```
+effective_score = fused_score × (1 - 0.15 × volatility)
+volatility      = stddev(recent_scores) / mean(recent_scores)
+```
+
+As a provider, **avoid returning erratic scores for the same subject over short periods**. If your upstream data source has high variance (e.g. a social karma feed that fluctuates hourly), smooth your output with a rolling average or increase your TTL to reduce intra-day noise. A provider that returns 0.90 on Monday and 0.30 on Tuesday for the same subject — without a real underlying change — will harm the subject's effective score through no fault of their own.
+
+Good practice: set `ttl` high enough that your signal does not update faster than genuine trust can change.
+
+| Signal Type | Recommended minimum TTL |
+|-------------|------------------------|
+| `author_reputation` | 86400s (24h) |
+| `community_karma` | 43200s (12h) |
+| `repo_health` | 43200s (12h) |
+| `security_scan` | 604800s (7d) |
+| `on_chain_reputation` | 3600s (1h) |
+| `blind_feedback` | 3600s (1h) |
+
+### Fraud Resistance (SPEC §12)
+
+The Fraud Detection Engine runs cross-provider consistency checks on every evaluation. Signals that are wildly inconsistent with other providers' signals for the same subject will be flagged and may trigger a `cross_provider_inconsistency` fraud alert that overrides your signal's contribution.
+
+**Do not fabricate or inflate signals.** Specifically:
+
+- Do not return high scores for newly created accounts that have no real history
+- Do not return inconsistent scores for the same subject across evaluations without a genuine underlying change
+- Do not return uniform scores across all subjects — a provider that scores everything 0.80–0.85 looks like a compromised provider (see SPEC §11.2.2, Adversarial Test Vector D.2)
+
+The scoring engine tracks your provider's historical score distribution. Sudden shifts in that distribution trigger automatic demotion and investigation.
+
+### Context Awareness (SPEC §7.4)
+
+The optional `context` field in evaluate requests is not decorative — use it to adjust your signals for the action being taken. An agent with a strong author reputation is not necessarily trustworthy for `filesystem` write access.
+
+```typescript
+async function evaluate(subject: Subject, context?: Context): Promise<Signal[]> {
+  const baseScore = await computeBaseScore(subject);
+
+  // Adjust for high-risk actions
+  let score = baseScore;
+  if (context?.permissions_requested?.includes('filesystem')) {
+    score *= 0.85;  // require higher threshold for filesystem access
+  }
+  if (context?.risk_level === 'critical') {
+    score *= 0.90;  // conservative adjustment in critical contexts
+  }
+
+  const confidence = computeConfidence(subject, context);
+
+  return [{ score, confidence, ... }];
+}
+```
+
+The action-based weight table in SPEC §7.4 shows which signal categories are boosted or reduced per action type — align your context adjustments with these weights.
+
+### TTL and Cache Hygiene
+
+- Always set `ttl` — providers without a TTL force Aegis to use a default of 3600s, which may be too short (causing unnecessary re-evaluation) or too long (serving stale signals) for your data source
+- TTL SHOULD reflect the actual freshness of your upstream data, not a conservative safe value
+- If your upstream data changes event-driven (e.g. a webhook triggers on new audit submission), set a shorter TTL and handle re-evaluation eagerly
+- Do not set `ttl = 0` — this disables caching and will cause your provider to be called on every query, burning both your rate limits and Aegis query latency
+
+---
+
+## Testing
+
+*Coming in v0.5 — will include:*
+- Local provider test harness (mock Aegis engine)
+- Conformance test suite aligned with [Appendix D adversarial vectors](SPEC.md#appendix-d-adversarial-test-vectors)
+- Score distribution validator (catches D.2-style uniform scoring before registration)
+- Integration test against the public Aegis staging instance
