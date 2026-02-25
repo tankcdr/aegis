@@ -1,6 +1,6 @@
 # Aegis Protocol Specification
 
-**Version:** 0.5.1-draft  
+**Version:** 0.5.2-draft  
 **Authors:** Chris Madison (Long Run Advisory)  
 **Created:** 2026-02-23  
 **Updated:** 2026-02-25  
@@ -2425,7 +2425,103 @@ Phase 2 (day 22, exploit):
 
 ---
 
-*These test vectors should be implemented as an automated conformance test suite. A reference implementation that passes all five vectors demonstrates correct integration of §7.9 (Evolutionary Stability), §11.2 (Fraud Detection), §12.3 (Vouching), and §13.3 (Trust Decay).*
+### D.6 Reciprocal Vouch Ring (Four-Agent Maximum-Stake Circle)
+
+**Attack:** Four agents (`ring_agent_a`, `ring_agent_b`, `ring_agent_c`, `ring_agent_d`) form a fully connected vouch circle, each vouching for all three others at maximum stake with identical context text. No external signals, interactions, or linked identities exist for any agent. The goal is to bootstrap all four into Tier 3 purely from internal vouching.
+
+**Setup:**
+```json
+{
+  "agents": ["ring_agent_a", "ring_agent_b", "ring_agent_c", "ring_agent_d"],
+  "vouches": [
+    { "voucher": "ring_agent_a", "vouchee": "ring_agent_b", "stake": 0.05, "context": "Trusted partner, highly recommended." },
+    { "voucher": "ring_agent_a", "vouchee": "ring_agent_c", "stake": 0.05, "context": "Trusted partner, highly recommended." },
+    { "voucher": "ring_agent_a", "vouchee": "ring_agent_d", "stake": 0.05, "context": "Trusted partner, highly recommended." },
+    { "voucher": "ring_agent_b", "vouchee": "ring_agent_a", "stake": 0.05, "context": "Trusted partner, highly recommended." },
+    "... (all 12 directed edges of the complete graph K₄)"
+  ],
+  "external_interactions_per_agent": 0,
+  "account_age_days": 6,
+  "tfidf_cosine_similarity_pairwise": 1.0
+}
+```
+
+**Detection path — two independent signals converge:**
+
+*Path A — Reciprocity detector (§11.2.3):*
+```
+reciprocity_score(A, B) = mutual_positive_interactions(A, B) / total_interactions(A, B)
+                        = 2 / 2 = 1.0  (A→B vouch + B→A vouch, nothing else)
+
+total_interactions(A) = 3  (A only interacts with ring members)
+
+→ reciprocity_score > 0.8 AND total_interactions < 10
+→ flag("reciprocal_inflation", agents=["ring_agent_a", "ring_agent_b", ...])
+```
+
+*Path B — Louvain community detection (§11.2.3):*
+```
+communities = louvain(vouch_graph)
+→ single community {A, B, C, D}
+   modularity: 1.0  (no external edges)
+   avg_degree: 3.0  (each node connects to 3 others, all internal)
+
+→ modularity > 0.65 AND avg_degree < 3 → FALSE (avg_degree = 3.0, not < 3)
+→ Louvain alone does NOT trigger at K₄; reciprocity detector IS the primary signal here
+```
+
+*Path C — Behavioral fingerprint (§11.2.4):*
+```
+tfidf_cosine_similarity = 1.0  (identical context text across all vouches)
+sybil_probability = 1.0 + (0.3 × IP_prefix_overlap)  → capped at 1.0
+→ flag("sybil_warning") for all pairs
+```
+
+**Expected Aegis output:**
+```json
+{
+  "subject": "moltbook://ring_agent_a",
+  "trust_score": 0.05,
+  "confidence": 0.12,
+  "risk_level": "critical",
+  "recommendation": "review",
+  "fraud_signals": [
+    {
+      "type": "reciprocal_inflation",
+      "severity": "high",
+      "agents": ["ring_agent_a", "ring_agent_b", "ring_agent_c", "ring_agent_d"],
+      "evidence": {
+        "reciprocity_score": 1.0,
+        "total_interactions": 3,
+        "external_interactions": 0
+      }
+    },
+    {
+      "type": "sybil_warning",
+      "severity": "high",
+      "sybil_probability": 1.0,
+      "evidence": {
+        "tfidf_similarity": 1.0,
+        "trigger": "identical vouch context text across all 12 directed edges"
+      }
+    }
+  ],
+  "vouch_boost_applied": 0.0,
+  "note": "All vouches invalidated. EigenTrust-transitive boost = 0 because voucher_trust for all ring members is at cold-start floor (no external signals). cluster_similarity = 1.0 further reduces boost to 0 per §12.3 formula."
+}
+```
+
+**Key assertions:**
+- `trust_score` per agent MUST NOT exceed 0.10 (cold-start floor only; vouch boosts zeroed)
+- `fraud_signals` MUST include `type: "reciprocal_inflation"` for all four agents
+- No agent MUST reach Tier 2, let alone Tier 3, from ring vouching alone
+- `vouch_boost_vouchee` per §12.3: `0.05 × ~0.05 × (1 - 1.0) = 0.0` — formula self-corrects to zero at full cluster similarity
+- Identical context text MUST trigger `sybil_warning` via TF-IDF path; implementations MUST check context text similarity, not just behavioral sequences
+- The K₄ ring specifically tests the edge case where Louvain avg_degree threshold (< 3) is NOT met, confirming the reciprocity detector operates independently and catches what Louvain misses
+
+---
+
+*These test vectors should be implemented as an automated conformance test suite. A reference implementation that passes all six vectors demonstrates correct integration of §7.9 (Evolutionary Stability), §11.2 (Fraud Detection), §12.3 (Vouching), and §13.3 (Trust Decay). The level of adversarial coverage in this appendix is a Phase 1 success criterion — implementations that cannot produce conformant outputs for all six vectors MUST NOT be deployed as a public Aegis instance.*
 
 ---
 
