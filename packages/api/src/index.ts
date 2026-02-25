@@ -2,7 +2,7 @@
 // Implements the REST API defined in SPEC.md §5
 
 import Fastify from 'fastify';
-import { AegisEngine } from '@aegis-protocol/core';
+import { AegisEngine, identityGraph, issueChallenge, verifyChallenge, getChallenge } from '@aegis-protocol/core';
 import type { Action, Subject } from '@aegis-protocol/core';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -71,14 +71,91 @@ server.get<{ Params: { subject: string } }>(
   },
 );
 
-// GET /v1/identity/:namespace/:id/links — SPEC §5.4 (Phase 2)
-server.get('/v1/identity/:namespace/:id/links', async (_request, reply) => {
-  return reply.code(501).send({ error: 'Identity graph — Phase 2' });
+// GET /v1/identity/:namespace/:id/links — list all verified links for an identifier
+server.get<{ Params: { namespace: string; id: string } }>(
+  '/v1/identity/:namespace/:id/links',
+  async (request, reply) => {
+    const { namespace, id } = request.params;
+    const subject = { namespace, id: decodeURIComponent(id) };
+    const links = identityGraph.getLinked(subject);
+    const all = identityGraph.resolveAll(subject);
+    return reply.send({
+      subject: `${namespace}:${id}`,
+      link_count: links.length,
+      linked_identifiers: all.map(s => `${s.namespace}:${s.id}`),
+      links: links.map(l => ({
+        from: `${l.from.namespace}:${l.from.id}`,
+        to:   `${l.to.namespace}:${l.to.id}`,
+        method: l.method,
+        confidence: l.confidence,
+        verified_at: l.verifiedAt,
+        attestation_uid: l.attestationUid ?? null,
+      })),
+    });
+  },
+);
+
+// POST /v1/identity/link — issue a challenge to verify a cross-namespace link
+server.post('/v1/identity/link', async (request, reply) => {
+  const body = request.body as {
+    from?: { namespace: string; id: string };
+    to?:   { namespace: string; id: string };
+    method?: 'tweet' | 'wallet_signature';
+  } | undefined;
+
+  if (!body?.from?.namespace || !body?.from?.id) {
+    return reply.code(400).send({ error: '"from" identifier required: { namespace, id }' });
+  }
+  if (!body?.to?.namespace || !body?.to?.id) {
+    return reply.code(400).send({ error: '"to" identifier required: { namespace, id }' });
+  }
+
+  const method = body.method ?? 'tweet';
+  if (method !== 'tweet' && method !== 'wallet_signature') {
+    return reply.code(400).send({ error: 'method must be "tweet" or "wallet_signature"' });
+  }
+
+  const challenge = issueChallenge(body.from, body.to, method);
+  return reply.code(201).send({
+    challenge_id:      challenge.id,
+    challenge_string:  challenge.challengeString,
+    method:            challenge.method,
+    instructions:      challenge.instructions,
+    expires_at:        challenge.expiresAt,
+  });
 });
 
-// POST /v1/identity/link — SPEC §5.4 (Phase 2)
-server.post('/v1/identity/link', async (_request, reply) => {
-  return reply.code(501).send({ error: 'Identity linking — Phase 2' });
+// POST /v1/identity/verify — submit proof for a pending challenge
+server.post('/v1/identity/verify', async (request, reply) => {
+  const body = request.body as {
+    challenge_id?: string;
+    signature?: string;
+    twitter_username?: string;
+  } | undefined;
+
+  if (!body?.challenge_id) {
+    return reply.code(400).send({ error: '"challenge_id" is required' });
+  }
+
+  const challenge = getChallenge(body.challenge_id);
+  if (!challenge) {
+    return reply.code(404).send({ error: 'Challenge not found or expired' });
+  }
+
+  const result = await verifyChallenge(body.challenge_id, {
+    signature:       body.signature,
+    twitterUsername: body.twitter_username,
+  });
+
+  if (!result.success) {
+    return reply.code(422).send({ error: result.error });
+  }
+
+  return reply.send({
+    verified: true,
+    link: result.link,
+    message: `✅ ${result.link?.from} ↔ ${result.link?.to} verified (${result.link?.method}, confidence: ${result.link?.confidence})`,
+  });
 });
 
 // POST /v1/audit/submit — SPEC §5.5 (Phase 2)

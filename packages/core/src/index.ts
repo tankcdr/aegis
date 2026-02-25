@@ -20,6 +20,20 @@ export { ERC8004Provider }  from './providers/index.js';
 export { MoltbookProvider } from './providers/index.js';
 export { ClawHubProvider }  from './providers/index.js';
 
+// ── Identity graph ───────────────────────────────────────────────────────────
+export { identityGraph, IdentityGraph } from './identity/index.js';
+export { issueChallenge, verifyChallenge, getChallenge } from './identity/index.js';
+export { resolveIdentity, linkedNamespaces } from './identity/index.js';
+export type {
+  Challenge,
+  ChallengeMethod,
+  IdentityLink,
+  ResolvedIdentity,
+  SubjectRef,
+  VerificationMethod,
+  VerifyResult,
+} from './identity/index.js';
+
 // ── Attestation ──────────────────────────────────────────────────────────────
 export { EASWriter, createEASWriter } from './attestation/eas.js';
 export type { AttestationResult }     from './attestation/eas.js';

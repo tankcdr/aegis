@@ -25,6 +25,7 @@ import {
 import { TrustCache } from './cache.js';
 import { createEASWriter } from '../attestation/eas.js';
 import type { EASWriter } from '../attestation/eas.js';
+import { resolveIdentity } from '../identity/resolver.js';
 import {
   applyContextMultiplier,
   evTrustAdjust,
@@ -70,10 +71,31 @@ export class AegisEngine {
     const cached = this.cache.get(subjectKey);
     if (cached) return cached;
 
-    // ── Step 2: Find eligible providers ───────────────────────────────────────
-    const eligible = this.providers.filter((p) => p.supported(subject));
+    // Resolve to all linked identifiers via the identity graph
+    const identity = await resolveIdentity(subject);
+    const allSubjects = identity.all; // canonical + all linked
 
-    if (eligible.length === 0) {
+    // ── Step 2: Find eligible providers across ALL linked identifiers ──────────
+    // Build a flat list of (provider, subject) pairs to dispatch
+    type DispatchPair = { provider: Provider; subject: typeof subject };
+    const dispatchPairs: DispatchPair[] = [];
+
+    for (const subj of allSubjects) {
+      // SubjectRef doesn't carry type — inherit from original or default to 'agent'
+      const typedSubj = {
+        type: subject.type,
+        namespace: subj.namespace,
+        id: subj.id,
+      } satisfies typeof subject;
+
+      for (const provider of this.providers) {
+        if (provider.supported(typedSubj)) {
+          dispatchPairs.push({ provider, subject: typedSubj });
+        }
+      }
+    }
+
+    if (dispatchPairs.length === 0) {
       const result: TrustResult = {
         subject: subjectKey,
         trust_score: 0,
@@ -81,34 +103,30 @@ export class AegisEngine {
         risk_level: 'critical',
         recommendation: 'deny',
         signals: [],
-        fraud_signals: [
-          {
-            type: 'no_providers',
-            severity: 'critical',
-            description: `No signal providers support namespace "${subject.namespace}"`,
-            detected_at: new Date().toISOString(),
-          },
-        ],
-        unresolved: [
-          {
-            provider: 'none',
-            reason: `No providers support namespace "${subject.namespace}"`,
-          },
-        ],
+        fraud_signals: [{
+          type: 'no_providers',
+          severity: 'critical',
+          description: `No signal providers support namespace "${subject.namespace}"`,
+          detected_at: new Date().toISOString(),
+        }],
+        unresolved: [{
+          provider: 'none',
+          reason: `No providers support namespace "${subject.namespace}"`,
+        }],
         evaluated_at: new Date().toISOString(),
         metadata: { query_id: crypto.randomUUID() },
       };
       return result;
     }
 
-    // ── Step 3: Signal dispatch (parallel fan-out with timeout) ────────────────
+    // ── Step 3: Signal dispatch (parallel fan-out across all subjects) ──────────
     const allSignals: Signal[] = [];
     const unresolved: Array<{ provider: string; reason: string }> = [];
 
     const providerResults = await Promise.allSettled(
-      eligible.map((provider) =>
+      dispatchPairs.map(({ provider, subject: subj }) =>
         Promise.race([
-          provider.evaluate(request),
+          provider.evaluate({ subject: subj, context }),
           new Promise<never>((_, reject) =>
             setTimeout(
               () => reject(new Error(`Timeout after ${this.providerTimeout}ms`)),
@@ -119,13 +137,14 @@ export class AegisEngine {
       ),
     );
 
-    for (const outcome of providerResults) {
+    for (let i = 0; i < providerResults.length; i++) {
+      const outcome = providerResults[i]!;
       if (outcome.status === 'fulfilled') {
         allSignals.push(...outcome.value.signals);
       } else {
-        const meta = eligible[providerResults.indexOf(outcome)];
+        const pair = dispatchPairs[i]!;
         unresolved.push({
-          provider: meta?.metadata().name ?? 'unknown',
+          provider: pair.provider.metadata().name,
           reason: outcome.reason instanceof Error
             ? outcome.reason.message
             : String(outcome.reason),
