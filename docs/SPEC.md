@@ -1535,7 +1535,6 @@ Cross-provider inconsistency triggers a `recommendation: "review"` regardless of
 Multiple identities acting in concert to inflate reputation:
 
 - **Temporal clustering**: Multiple audits submitted within minutes of each other from accounts created around the same time
-- **Graph density**: A cluster of agents that only vouch for each other and no one else (clique detection using modularity analysis)
 - **Feedback symmetry**: If A rates B highly and B rates A highly, and neither has many other interactions, flag as potential reciprocal inflation
 
 ```
@@ -1544,28 +1543,83 @@ if reciprocity_score > 0.8 and total_interactions(A) < 10:
     flag("reciprocal_inflation", agents=[A, B])
 ```
 
+**Vouch Graph Sybil Detection (Louvain community analysis):**
+
+Aegis runs Louvain community detection on the combined vouch + audit graph on a quarterly cadence (or triggered when the graph grows by >10% since the last run):
+
+```
+communities = louvain(vouch_graph ∪ audit_graph)
+
+for community in communities:
+    modularity = compute_modularity(community, full_graph)
+    avg_degree = mean(degree(agent) for agent in community)
+
+    if modularity > 0.65 and avg_degree < 3:
+        apply_signal_discount(community, factor=0.50)
+        flag("sybil_cluster", agents=community)
+```
+
+**Interpretation:**
+- High modularity (> 0.65) means the community is densely connected internally but sparsely connected to the rest of the graph — a classic Sybil cluster signature.
+- Low average degree (< 3) means agents in the cluster have few connections outside each other, confirming insularity rather than legitimate specialization.
+- The 50% signal discount reduces — but does not eliminate — the cluster's contributions, allowing for human review before full revocation.
+
+**Cadence:** Quarterly full-graph run + incremental re-evaluation of any community containing a newly flagged agent.
+
 #### 11.2.4 Behavioral Fingerprinting
 
-Even when agents use different identities, behavioral patterns leak through:
+Even when agents use different identities, behavioral patterns leak through. Aegis computes a `sybil_probability` score for each pair of identities using a composite formula:
 
-- **Timing patterns**: Same UTC hour of activity across "different" accounts
-- **Language fingerprints**: Similar writing style in audit reports or Moltbook posts (cosine similarity on TF-IDF vectors)
-- **Capability overlap**: Two "different" agents that always audit the same skills in the same order
-- **Infrastructure signals**: Same IP ranges, same API client versions, same error patterns
+```
+sybil_probability = cosine_similarity(TF-IDF(audit_text ∪ action_sequence))
+                  + 0.3 × IP_prefix_overlap
+```
 
-Behavioral fingerprinting produces a `sybil_probability` score (0.0 to 1.0). When `sybil_probability > 0.7` for a pair of identities, both identities receive a `sybil_warning` flag and their signals are de-duplicated (only the highest-confidence signal from the cluster counts).
+Where:
+- **TF-IDF vector** — Built from the union of audit report text and MCP/A2A call patterns (tool names, argument shapes, call order). Similar language + similar call sequences = strong Sybil signal.
+- **`cosine_similarity`** — Standard cosine similarity between the two agents' TF-IDF vectors (sklearn-compatible implementation). Range [0, 1]; values > 0.85 indicate near-identical behavior.
+- **`IP_prefix_overlap`** — Fraction of observed /24 prefixes shared between the two agents' request histories. Weighted at 0.3 to avoid over-penalizing shared infrastructure (corporate NATs, cloud egress IPs).
+
+**Signal sources for the TF-IDF corpus:**
+- Audit report summaries submitted via `POST /v1/audit/submit`
+- MCP tool call names and argument key patterns (not values — privacy-preserving)
+- A2A task descriptions and skill identifiers used
+
+**Detection thresholds:**
+- `sybil_probability > 0.7` — `sybil_warning` flag issued; signals de-duplicated (only highest-confidence signal from the cluster counts)
+- `sybil_probability > 0.9` — Automatic `suspend` recommendation pending human review
+
+**Implementation note:** TF-IDF vectors are computed incrementally and stored per-agent. Pairwise similarity is computed lazily (on query) rather than exhaustively — only evaluated against agents with overlapping activity windows to bound computational cost.
 
 #### 11.2.5 Honeypot Skills
 
-Aegis MAY operate honeypot skills — deliberately vulnerable or valuable-looking skills that have no legitimate purpose. Any agent that interacts with a honeypot in a malicious way (exfiltrating credentials, accessing files outside scope) is immediately flagged:
+Aegis MAY operate honeypot skills — deliberately vulnerable or valuable-looking skills that have no legitimate purpose. Any agent that interacts with a honeypot in a malicious way (exfiltrating credentials, accessing files outside scope) is immediately and permanently flagged:
 
 ```
 if agent interacts with honeypot:
     if interaction is malicious:
-        set trust_score = 0.0
+        set trust_score = 0.0          # permanent; not subject to recovery
         flag("honeypot_triggered", permanent=true)
-        propagate_warning to all linked identities
+        propagate_contagion(agent, depth=2)
 ```
+
+**Contagion propagation (depth-2 EigenTrust):**
+
+Honeypot triggers propagate to linked identities and vouching relationships using the EigenTrust-inspired contagion model defined in §14.2:
+
+```
+for each linked_identity in resolve_links(agent, depth=2):
+    contagion_impact = trust_link_weight(agent, linked_identity) × 0.5  # severity=revoke
+    linked_identity.trust_score -= min(0.2, contagion_impact)
+    flag("honeypot_contagion", source=agent, depth=hop_distance)
+
+for each voucher of agent:
+    voucher.trust_score -= voucher.staked_amount  # full stake loss per §13.3
+    flag("poor_judgment", reason="vouched_for_honeypot_trigger")
+```
+
+**Why permanent:**
+A honeypot trigger is not an ambiguous signal — it requires deliberate malicious action against a known-inert target. Unlike velocity anomalies or cross-provider inconsistencies (which may have innocent explanations), a honeypot trigger has no false-positive scenario by construction. The `trust_score = 0.0` is therefore non-recoverable through the standard appeal process (§14.4); reversal requires a governance vote by Tier 4 Anchor agents.
 
 ### 11.3 Fraud Signals in Trust Responses
 
