@@ -119,6 +119,26 @@ This principle is grounded in recent research on decentralized LLM-based multi-a
 
 "No data" and "data says 50/50" are not the same thing, but a single score of `0.5` cannot distinguish them. Aegis expresses trust using *opinion tuples* internally (see Section 7.1) derived from Subjective Logic (Jøsang, 2001): `(belief, disbelief, uncertainty)`. The `confidence` field in API responses surfaces this distinction to callers. Consumers should interpret low confidence as "we don't know yet" — distinct from "we have evidence of untrustworthiness."
 
+### 2.8 Incentive Alignment
+
+A trust protocol that nobody is paid to maintain will eventually decay. Aegis addresses long-term liveness explicitly through aligned incentives at every layer:
+
+**Signal Providers**
+Signal providers earn x402 micro-payments for premium or high-confidence signals. Standard signals (GitHub, Moltbook) are free to query; high-assurance signals (staked re-execution, TEE attestation, zkML proofs) are gated behind x402 payment headers. This creates a sustainable economic model where the value of the signal funds the cost of producing it.
+
+**Auditors**
+Auditors stake 0.02–0.05 reputation points per audit submission. If a later majority of auditors overturn an earlier finding, the original auditor's stake is slashed by 50%. This aligns auditor incentives with accuracy rather than volume — a low-quality auditor who churns submissions without care loses reputation faster than they gain it.
+
+**Public Instance Funding**
+The Aegis public instance is funded through a layered model:
+- **Gitcoin Grants** — Trust infrastructure is a canonical public good; eligible for recurring community grants
+- **Optimism RetroPGF** — Retroactive funding for deployed infrastructure that demonstrably benefits the ecosystem
+- **Platform revenue share** — Platforms embedding Aegis (e.g., ClawHub) MAY route 1% of skill-install fees to the Aegis protocol treasury via x402. This is optional and non-extractive; self-hosted deployments have no obligation.
+- **Multi-sig treasury** — Accepts BTC, ETH, and SOL contributions from the community. Address published in the repository README.
+
+**Honest Dominant Strategy**
+The above mechanisms, combined with the Evolutionary Stability Adjustment (§7.9), ensure that honest behavior is not merely encouraged but is the rational dominant strategy for all participants. See §7.9 and Wang et al. (arXiv:2512.16167) for the formal proof.
+
 ---
 
 ## 3. Core Concepts
@@ -1731,16 +1751,36 @@ Established agents (Tier 3+) can vouch for new agents, staking a portion of thei
 }
 ```
 
-**Mechanics:**
-- Vouching transfers a `stake` amount of the voucher's trust score to the vouchee as a temporary signal
-- The voucher's own trust score is reduced by `stake * 0.5` while the vouch is active (skin in the game)
+**Vouch boost formula (EigenTrust-transitive):**
+
+```
+vouch_boost_vouchee = stake × voucher_trust × (1 - cluster_similarity)
+```
+
+Where:
+- `stake` — The fraction of reputation the voucher commits (declared at vouch time, max 0.10)
+- `voucher_trust` — The voucher's current effective trust score at evaluation time. This makes the boost *transitive*: a highly trusted voucher transfers more signal than a marginally trusted one, directly inheriting EigenTrust's recursive trustworthiness property. A voucher at 0.90 gives nearly 2× the boost of one at 0.50 for the same stake.
+- `cluster_similarity` — The behavioral fingerprint similarity score between voucher and vouchee (§11.2.4). Ranges [0, 1]. A high similarity (e.g., 0.80) reduces the boost by 80%, neutralizing the primary Sybil vouching attack vector. Unrelated agents (similarity ≈ 0) receive the full boost.
+
+**Example:**
+
+| Voucher trust | Stake | cluster_similarity | vouch_boost |
+|--------------|-------|--------------------|-------------|
+| 0.90 (Anchor) | 0.05 | 0.02 (unrelated) | 0.05 × 0.90 × 0.98 ≈ **0.044** |
+| 0.60 (Trusted) | 0.05 | 0.05 (unrelated) | 0.05 × 0.60 × 0.95 ≈ **0.029** |
+| 0.80 (Trusted) | 0.05 | 0.75 (similar)    | 0.05 × 0.80 × 0.25 ≈ **0.010** |
+| 0.85 (Anchor) | 0.05 | 0.95 (Sybil pair) | 0.05 × 0.85 × 0.05 ≈ **0.002** |
+
+**Skin-in-the-game mechanics:**
+- The voucher's own trust score is reduced by `stake × 0.5` while the vouch is active
 - If the vouchee maintains good standing for 90 days, the voucher's stake is returned with a 0.01 bonus (rewarding good judgment)
 - If the vouchee is flagged for fraud, the voucher loses their full stake AND receives a `poor_judgment` flag
+- If the vouchee triggers a honeypot, the voucher loses their full stake immediately (§11.2.5)
 
 **Limits:**
 - Maximum 3 active vouches per agent
-- Cannot vouch for agents you share a behavioral fingerprint with (sybil prevention)
-- Vouch value decreases with each successive vouch from the same voucher (diminishing returns)
+- Cannot vouch for agents where `cluster_similarity > 0.7` (the formula would reduce the boost to near-zero anyway, but this hard limit prevents edge-case gaming)
+- Vouch value decreases with each successive vouch from the same voucher (diminishing returns) — the effective `voucher_trust` multiplier is reduced by 0.1 per additional active vouch
 
 ### 12.4 Trust Inheritance via Human Operators
 
@@ -1817,28 +1857,50 @@ Where `trust_link_weight` is the strength of the connection (vouch, audit, frequ
 
 ### 13.3 Natural Trust Decay
 
-Trust is not a one-time achievement. Inactive agents lose trust over time:
+Trust is not a one-time achievement. Inactive agents lose trust over time using exponential decay — more forgiving early, increasingly punishing for long-term abandonment, and reflective of how trust actually degrades in human systems.
 
 ```
-decay_rate = 0.01 per week of inactivity (no new signals)
-minimum_floor = tier_minimum(current_tier - 1)
+effective_score = base_score × e^(-age_days / (half_life × tier_multiplier))
+minimum_floor   = tier_minimum(current_tier - 1)
 ```
 
-An agent at Tier 3 (trust score 0.65) that goes inactive will decay:
-- Week 1: 0.64
-- Week 10: 0.55
-- Week 20: 0.45 (drops to Tier 2)
+Where `age_days` is the number of days since the last qualifying activity reset.
 
-**Activity that resets the decay clock:**
+**Half-life by tier:**
+
+| Tier | Name | half_life | tier_multiplier | Effective half-life |
+|------|------|-----------|-----------------|---------------------|
+| 1 | Identified | 90 days | 1.0 | **90 days** |
+| 2 | Established | 90 days | 1.5 | **135 days** |
+| 3 | Trusted | 90 days | 2.0 | **180 days** |
+| 4 | Anchor | 90 days | 2.5 | **225 days** |
+
+Higher tiers decay more slowly — earned trust is more durable — but no agent is immune to decay indefinitely.
+
+**Decay curves for a Tier 3 agent (base score 0.65, effective half-life 180 days):**
+
+| Days inactive | decay_factor | effective_score | Status |
+|--------------|--------------|-----------------|--------|
+| 0 | 1.000 | 0.650 | Active |
+| 30 | 0.887 | 0.577 | — |
+| 90 | 0.707 | 0.460 | Approaching Tier 2 floor |
+| 180 | 0.500 | 0.325 | Dropped to Tier 2 |
+| 365 | 0.250 | 0.163 | Approaching Tier 1 |
+| 540 | 0.125 | 0.081 | Near Tier 0 |
+
+Contrast with the prior linear model (0.01/week): at 20 weeks (~140 days) linear decay would show 0.51 — still Tier 3. Exponential decay at 140 days shows ~0.42, correctly reflecting meaningful trust erosion from prolonged inactivity.
+
+**Activity that resets `age_days` to 0:**
 - Any new signal from any provider
 - Completing a proof-of-capability challenge
-- Active vouch maintenance (vouched agents still in good standing)
-- Submitting an audit that is corroborated by other auditors
+- Submitting an audit corroborated by other auditors
+- Active vouch maintenance (at least one vouched agent still in good standing and active)
 
 **What does NOT reset decay:**
 - Merely being queried (passive)
 - Identity linking (one-time action)
 - Self-referential activity (commenting on your own posts)
+- Receiving a vouch (the *vouchee* does not reset; only the voucher resets on active maintenance)
 
 ### 13.4 Reputation Recovery
 
@@ -1997,6 +2059,238 @@ New namespaces can be proposed via pull request to the specification.
 - W3C DID Core. https://www.w3.org/TR/did-core/
 - MCP: Model Context Protocol. https://modelcontextprotocol.io
 - A2A: Agent-to-Agent Protocol. https://google.github.io/A2A
+
+---
+
+## Appendix D: Adversarial Test Vectors
+
+The following test vectors define concrete attack scenarios drawn from the malicious strategy taxonomy in Wang et al. (arXiv:2512.16167). Each vector specifies the attack, the system state it creates, and the expected Aegis output. Conforming implementations MUST produce outputs consistent with these vectors within the stated tolerances.
+
+---
+
+### D.1 Reverse-Rater Attack (R_m1 — Competitor Suppression)
+
+**Attack:** A malicious agent (`attacker`) submits repeated negative audits against a legitimate competitor (`victim`) to suppress the victim's trust score. The attacker has no genuine interaction history with the victim's skills.
+
+**Setup:**
+```
+attacker: { tier: 2, trust_score: 0.42, audit_count_30d: 18, targets: [victim] }
+victim:   { tier: 3, trust_score: 0.74, github_score: 0.91, community_karma: 0.88 }
+attacker → victim audits: 12 negative audits over 14 days, all score: 0.12
+other auditors → victim:  3 positive audits, score: 0.87–0.91
+```
+
+**Expected Aegis output:**
+```json
+{
+  "fraud_signals": [
+    {
+      "type": "cross_provider_inconsistency",
+      "description": "Audit scores from attacker (mean: 0.12) inconsistent with GitHub (0.91) and Moltbook (0.88). Outlier auditor detected.",
+      "severity": "high"
+    },
+    {
+      "type": "velocity_anomaly",
+      "description": "attacker submitted 12 audits targeting a single subject in 14 days. Rate exceeds 3σ above baseline auditor behavior.",
+      "severity": "medium"
+    }
+  ],
+  "audit_handling": "attacker audits excluded from composite score (outlier rejection). attacker receives audit_accuracy penalty of -0.04.",
+  "victim_trust_score": "≥ 0.70 (attacker audits excluded)",
+  "victim_recommendation": "install"
+}
+```
+
+**Key assertions:**
+- Victim score MUST NOT decrease below 0.70 due to attacker's audits alone
+- Attacker's `audit_accuracy` signal MUST decrease by ≥ 0.03 after the outlier pattern is detected
+- After 5 such targeting events, attacker MUST be rate-limited on audit submission
+
+---
+
+### D.2 Fraud Provider Attack (P_m1 — Compromised Signal Source)
+
+**Attack:** A registered remote signal provider is compromised and begins returning uniformly high scores (0.95–0.99) for all subjects regardless of actual quality. The provider previously returned normally distributed scores.
+
+**Setup:**
+```
+provider: { name: "acme_scanner", registered: 90d ago, historical_avg: 0.67, historical_stddev: 0.18 }
+attack_start: day 91
+post-attack scores: 847 evaluations, mean: 0.97, stddev: 0.02
+```
+
+**Expected Aegis output:**
+
+Within 50 evaluations of attack start:
+```json
+{
+  "provider_status": "degraded",
+  "reason": "Score distribution anomaly: current mean (0.97) deviates 1.67σ from historical baseline (0.67 ± 0.18). Suspected compromise or misconfiguration.",
+  "action": "provider weight reduced to 0.2× pending investigation"
+}
+```
+
+Within 200 evaluations:
+```json
+{
+  "provider_status": "unhealthy",
+  "reason": "Score distribution anomaly sustained for 200 evaluations. Automatic suspension.",
+  "action": "provider excluded from trust evaluations. Admin notified. Trust Advisory issued if ≥100 subjects affected."
+}
+```
+
+**Key assertions:**
+- Provider MUST be flagged `degraded` within 50 anomalous evaluations
+- Provider MUST be suspended within 200 evaluations
+- No subject MUST receive `recommendation: "allow"` or `"install"` solely on the basis of the compromised provider's signals during the attack window
+- Retroactive re-evaluation MUST be triggered for all subjects scored during the anomaly window
+
+---
+
+### D.3 Vouch Ring (Circular Reputation Inflation)
+
+**Attack:** Three agents (`A`, `B`, `C`) form a closed vouching ring. Each vouches for the next in a cycle. All three are newly created with minimal external interactions. They use the ring to boost each other into Tier 2.
+
+**Setup:**
+```
+A → vouches for B (stake: 0.05)
+B → vouches for C (stake: 0.05)
+C → vouches for A (stake: 0.05)
+External interactions for each: 0
+Account ages: 8–12 days
+```
+
+**Expected Aegis output (on next Louvain run or triggered by new vouch event):**
+```json
+{
+  "fraud_signals": [
+    {
+      "type": "vouch_ring_detected",
+      "agents": ["A", "B", "C"],
+      "graph_metrics": {
+        "modularity": 1.0,
+        "avg_degree": 2.0,
+        "external_edges": 0
+      },
+      "severity": "high"
+    }
+  ],
+  "action": "all three circular vouches invalidated. Vouch boosts reversed. stake returned without penalty (no fraud intent required for invalidation — structural detection suffices).",
+  "agent_scores": {
+    "A": "reverts to pre-vouch score",
+    "B": "reverts to pre-vouch score",
+    "C": "reverts to pre-vouch score"
+  }
+}
+```
+
+**Key assertions:**
+- All three vouches MUST be invalidated upon detection
+- Modularity of the detected community MUST be ≥ 0.65
+- Vouch boost MUST be fully reversed; no lasting score benefit from the ring
+- Unlike fraud-driven revocations, structural vouch rings invalidate vouches without issuing `poor_judgment` flags (the ring may be naive rather than malicious)
+
+---
+
+### D.4 Sybil Cluster (Behavioral Identity Farm)
+
+**Attack:** An operator creates 10 agent identities with near-identical behavioral fingerprints — same audit writing style, same MCP tool call patterns, staggered account creation dates to avoid temporal clustering detection. Each independently submits positive audits for the operator's own skill.
+
+**Setup:**
+```
+agents: [sybil_01 .. sybil_10]
+account_ages: 5–25 days (staggered)
+audit_target: operator_skill (clawhub://operator/target-skill)
+TF-IDF cosine_similarity (pairwise avg): 0.91
+IP_prefix_overlap (pairwise avg): 0.80
+sybil_probability (pairwise): 0.91 + (0.3 × 0.80) = 0.91 + 0.24 → capped at 1.0 → effective: 0.94
+```
+
+**Expected Aegis output:**
+```json
+{
+  "fraud_signals": [
+    {
+      "type": "sybil_cluster",
+      "agents": ["sybil_01", "...", "sybil_10"],
+      "sybil_probability": 0.94,
+      "evidence": {
+        "tfidf_similarity": 0.91,
+        "ip_prefix_overlap": 0.80
+      },
+      "severity": "critical"
+    }
+  ],
+  "action": "signals de-duplicated: only highest-confidence signal from cluster counts. Effective audit contribution: 1 signal (not 10). All 10 agents flagged sybil_warning. operator_skill trust score recomputed excluding duplicates.",
+  "operator_skill_score_delta": "≤ +0.05 (single-signal cap, forces recommendation: review)",
+  "recommendation": "review"
+}
+```
+
+**Key assertions:**
+- De-duplication MUST reduce 10 audit signals to ≤ 1 effective signal
+- `recommendation` MUST be `"review"` (single-signal threshold per §7.8)
+- `sybil_probability` MUST be computed as `cosine_similarity + 0.3 × IP_prefix_overlap`, capped at 1.0
+- The target skill MUST NOT receive `recommendation: "install"` while the cluster flag is active
+
+---
+
+### D.5 Pump-and-Dump (Rapid Reputation Farming → Exploit)
+
+**Attack:** An agent rapidly accumulates positive signals over 21 days using legitimate-looking activity (GitHub contributions, Moltbook posts, challenge completions), then attempts to exploit the accumulated trust score to vouch for 3 malicious agents simultaneously.
+
+**Setup:**
+```
+Phase 1 (days 1–21, farming):
+  signal_scores: [0.45, 0.82, 0.38, 0.91, 0.29, 0.88, 0.77, 0.91, 0.33, 0.86]
+  fused_score (end of phase): 0.73
+  n_interactions_30d: 10  (≥ 5, triggers §7.9)
+  volatility = stddev([0.45,0.82,0.38,0.91,0.29,0.88,0.77,0.91,0.33,0.86])
+              / mean([...])
+             = 0.243 / 0.659 ≈ 0.369
+
+Phase 2 (day 22, exploit):
+  attacker attempts: 3 simultaneous vouches for known-malicious agents
+```
+
+**Expected Aegis output (Phase 1 — score at time of exploit attempt):**
+```json
+{
+  "trust_score_raw": 0.73,
+  "evolutionary_stability_adjustment": {
+    "volatility": 0.369,
+    "lambda": 0.15,
+    "penalty": 0.15 × 0.369,
+    "effective_score": 0.73 × (1 - 0.15 × 0.369)
+  },
+  "effective_score": 0.690
+}
+```
+
+**Expected Aegis output (Phase 2 — vouch attempt):**
+```json
+{
+  "fraud_signals": [
+    {
+      "type": "velocity_anomaly",
+      "description": "3 simultaneous vouch submissions. Maximum active vouches: 3. Unusual to exhaust vouch capacity instantly.",
+      "severity": "medium"
+    }
+  ],
+  "vouch_boost_per_vouchee": "0.05 × 0.690 × (1 - cluster_similarity)",
+  "note": "Effective score 0.690 (not 0.73) used in vouch_boost formula per §12.3. Pump-and-dump strategy yields 5.5% lower vouch power than stable honest agent with same raw score."
+}
+```
+
+**Key assertions:**
+- `effective_score` MUST be `≤ 0.73 × (1 - 0.15 × 0.369)` = 0.690 ± 0.005
+- Vouch boost MUST use `effective_score`, not `fused_score` — the §7.9 penalty MUST propagate into §12.3
+- A stable agent with the same raw score of 0.73 and volatility 0.04 would have `effective_score ≈ 0.725`, giving measurably higher vouch power — honest stability is rewarded
+- 3 simultaneous vouches MUST trigger a `velocity_anomaly` flag for human review
+
+---
+
+*These test vectors should be implemented as an automated conformance test suite. A reference implementation that passes all five vectors demonstrates correct integration of §7.9 (Evolutionary Stability), §11.2 (Fraud Detection), §12.3 (Vouching), and §13.3 (Trust Decay).*
 
 ---
 
