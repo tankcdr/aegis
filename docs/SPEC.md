@@ -1350,8 +1350,9 @@ A2A (Agent-to-Agent) handles authentication and task orchestration across organi
 **A2A feedback as trust signal:**
 After an A2A task completes, both parties can submit structured feedback. Aegis reads this feedback (via the ERC-8004 Reputation Registry) as a `task_completion` signal. The A2A task ID and context ID are preserved as evidence, enabling dispute resolution.
 
-**AgentCard trust field (proposed extension):**
-Aegis proposes a standard `trust` field in AgentCards:
+**AgentCard trust field (proposed extension — not ratified in A2A v0.x):**
+
+Aegis proposes the following optional `trust` object inside `.well-known/agent-card.json`. Adoption requires coordination with the A2A working group (Google + ecosystem partners). Until ratified, platforms SHOULD treat this as a non-breaking Aegis-specific extension — A2A-compliant agents that do not recognize the field will ignore it without error.
 
 ```json
 {
@@ -1365,7 +1366,7 @@ Aegis proposes a standard `trust` field in AgentCards:
 }
 ```
 
-This allows any A2A-compatible agent to instantly check an agent's trust score without prior Aegis configuration.
+This allows any Aegis-aware A2A agent to instantly check a peer's trust score without prior configuration. The field is intentionally minimal — `aegis_endpoint` is the only field needed for basic integration; `erc8004` and `eas_uid` are optional on-chain anchors for consumers that want to verify independently of the Aegis instance.
 
 ### 10.3 OASF Integration
 
