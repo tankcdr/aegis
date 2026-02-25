@@ -168,6 +168,26 @@ server.post('/v1/attest/anchor', async (_request, reply) => {
   return reply.code(501).send({ error: 'EAS attestation anchoring — Phase 3' });
 });
 
+// GET /skill.md — agent-readable skill manifest
+server.get('/skill.md', async (_request, reply) => {
+  try {
+    // skill.md lives at the repo/project root; cwd = /app in Docker
+    const skillPath = join(process.cwd(), 'skill.md');
+    const content = readFileSync(skillPath, 'utf8');
+    return reply
+      .header('Content-Type', 'text/markdown; charset=utf-8')
+      .header('Cache-Control', 'public, max-age=300')
+      .send(content);
+  } catch {
+    return reply.code(404).send({ error: 'skill.md not found' });
+  }
+});
+
+// GET / — redirect to skill.md (agents and humans both start here)
+server.get('/', async (_request, reply) => {
+  return reply.redirect('/skill.md', 302);
+});
+
 // GET /health
 server.get('/health', async () => {
   const providerHealth = await engine.health();

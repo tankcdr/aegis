@@ -12,7 +12,6 @@ primary_region = "iad"   # US East — closest to Base RPC endpoints
 [env]
   PORT = "3000"
   NODE_ENV = "production"
-  CACHE_DRIVER = "redis"
 
 [http_service]
   internal_port = 3000
