@@ -1,37 +1,56 @@
-# Dependencies
+# ─── Dependencies ─────────────────────────────────────────────────────────────
 node_modules/
 .pnpm-store/
 
-# Build output
+# ─── Build output ─────────────────────────────────────────────────────────────
 dist/
 build/
 *.tsbuildinfo
 
-# Environment
+# ─── Environment & Secrets ────────────────────────────────────────────────────
 .env
 .env.local
 .env.*.local
+.env.production
+.env.staging
 
-# Data
+# Explicitly block any file that could contain keys
+*.pem
+*.key
+*.p12
+*.pfx
+*secret*
+*secrets*
+*wallet*.json
+*keystore*
+*mnemonic*
+
+# ─── Data ─────────────────────────────────────────────────────────────────────
 data/
 *.db
 *.db-journal
+*.sqlite
+*.sqlite3
 
-# Logs
+# ─── Logs ─────────────────────────────────────────────────────────────────────
 logs/
 *.log
+npm-debug.log*
+pnpm-debug.log*
 
-# OS
+# ─── OS ───────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# IDE
+# ─── IDE ──────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
+*.swo
 
-# Test coverage
+# ─── Test ─────────────────────────────────────────────────────────────────────
 coverage/
 
-# SST (AWS — future)
+# ─── Future infra ─────────────────────────────────────────────────────────────
 .sst/
+.fly/
