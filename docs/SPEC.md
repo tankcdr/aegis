@@ -1,6 +1,6 @@
 # Aegis Protocol Specification
 
-**Version:** 0.5.0-draft  
+**Version:** 0.5.1-draft  
 **Authors:** Chris Madison (Long Run Advisory)  
 **Created:** 2026-02-23  
 **Updated:** 2026-02-25  
@@ -166,6 +166,16 @@ Examples:
 - `sati://solana:EtWTRABZaYq6i.../MintAddr...`
 - `npm://@openclaw/weather-skill`
 - `did://did:key:z6Mk...`
+
+**ERC-8004 namespace mapping:** The `erc8004://` prefix is Aegis-specific shorthand for readability. Internally, ERC-8004 uses the CAIP-2 tuple `{namespace}:{chainId}:{registryAddress}` with a separate `agentId` (ERC-721 tokenId). The Aegis mapping is:
+
+```
+erc8004://{chainId}:{registryAddress}/{agentId}
+    ↕
+eip155:{chainId}:{registryAddress} + agentId={agentId}  (ERC-8004 native)
+```
+
+Example: `erc8004://eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432/42` maps to the ERC-8004 agent with `agentId=42` on the Base L2 registry at `0x8004A169...`. The `erc8004://` prefix is retained in all Aegis APIs and EAS attestations; the ERC-8004 provider resolves it to the native tuple when querying on-chain registries.
 
 ### 3.2 Signal
 
@@ -1163,15 +1173,24 @@ Signals beyond 3× their TTL contribute at 10% effectiveness, signaling that re-
 
 The composite trust score maps to a risk level:
 
-| Trust Score | Risk Level | Recommendation |
-|-------------|------------|----------------|
-| 0.9 - 1.0 | `minimal` | `allow` |
-| 0.7 - 0.9 | `low` | `install` |
-| 0.5 - 0.7 | `medium` | `review` |
-| 0.3 - 0.5 | `high` | `caution` |
-| 0.0 - 0.3 | `critical` | `deny` |
+| Trust Score (default) | Trust Score (`critical` context) | Risk Level | Recommendation |
+|----------------------|----------------------------------|------------|----------------|
+| 0.9 - 1.0 | 1.05 - 1.0 *(effectively ≥ 0.95)* | `minimal` | `allow` |
+| 0.7 - 0.9 | 0.85 - 1.05 | `low` | `install` |
+| 0.5 - 0.7 | 0.65 - 0.85 | `medium` | `review` |
+| 0.3 - 0.5 | 0.45 - 0.65 | `high` | `caution` |
+| 0.0 - 0.3 | 0.00 - 0.45 | `critical` | `deny` |
 
-These thresholds shift based on context risk level. In a `critical` context, a score of 0.7 maps to `medium` risk rather than `low`.
+**Context multiplier:** When `context.risk_level` is `critical`, all thresholds shift down by **0.15**. The effective threshold for a given risk level = `default_threshold - (0.15 × context_severity_factor)`:
+
+| `context.risk_level` | `context_severity_factor` | Threshold shift |
+|---------------------|--------------------------|-----------------|
+| `low` | 0.0 | −0.00 |
+| `medium` | 0.33 | −0.05 |
+| `high` | 0.67 | −0.10 |
+| `critical` | 1.00 | −0.15 |
+
+Example: An agent with `trust_score = 0.72` receives `recommendation: "install"` in a default context, but `recommendation: "review"` in a `critical` context (0.72 < 0.85 adjusted threshold for `low` risk).
 
 ### 7.8 Minimum Signal Thresholds
 
@@ -1492,7 +1511,7 @@ async function shouldProceed(subject: string, action: string, riskLevel: string)
 ### 10.5 Rate Limiting and Abuse
 
 - All endpoints MUST implement rate limiting
-- Trust queries: 100/minute per IP (unauthenticated), 1000/minute (authenticated)
+- Trust queries: 100/minute per IP (unauthenticated), 5000/minute (authenticated) — the higher authenticated limit supports embedded deployments where a single platform API key may proxy thousands of agent queries per minute
 - Identity linking: 10/hour per identity
 - Audit submission: 50/hour per auditor
 - Provider registration: 5/day per account
@@ -2113,7 +2132,7 @@ Current version: **0.4.0-draft** (pre-governance; initial governance structure r
 | `github` | GitHub user or organization | `tankcdr` |
 | `moltbook` | Moltbook agent profile | `nyx_clawd` |
 | `clawhub` | ClawHub skill | `eudaemon_0/security-scanner` |
-| `erc8004` | ERC-8004 registered agent (Ethereum/L2) | `eip155:8453:0x742.../42` |
+| `erc8004` | ERC-8004 registered agent (Ethereum/L2) — see §3.1 for mapping to native ERC-8004 CAIP-2 tuple | `erc8004://eip155:8453:0x8004.../42` |
 | `sati` | SATI registered agent (Solana) | `solana:EtWTRA.../MintAddr` |
 | `npm` | npm package | `@openclaw/weather-skill` |
 | `did` | Decentralized Identifier | `did:key:z6Mk...` |
