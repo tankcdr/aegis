@@ -1,0 +1,23 @@
+{
+  "name": "aegis",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The trust layer for the agent internet",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm --filter @aegis-protocol/api dev",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "deploy:schema": "pnpm --filter @aegis-protocol/contracts deploy:schema"
+  },
+  "workspaces": [
+    "packages/*",
+    "contracts"
+  ]
+}

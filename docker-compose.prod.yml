@@ -1,0 +1,59 @@
+# Aegis — production self-hosted deployment
+# PostgreSQL + Redis — for high-traffic or multi-instance deployments.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up
+
+services:
+  aegis:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://aegis:${POSTGRES_PASSWORD}@postgres:5432/aegis
+      CACHE_DRIVER: redis
+      REDIS_URL: redis://redis:6379
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      MOLTBOOK_API_KEY: ${MOLTBOOK_API_KEY:-}
+      CLAWHUB_API_KEY: ${CLAWHUB_API_KEY:-}
+      ATTESTATION_ENABLED: ${ATTESTATION_ENABLED:-false}
+      BASE_RPC_URL: ${BASE_RPC_URL:-}
+      AEGIS_EAS_SCHEMA_UID: ${AEGIS_EAS_SCHEMA_UID:-}
+      AEGIS_ATTESTATION_PRIVATE_KEY: ${AEGIS_ATTESTATION_PRIVATE_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aegis
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aegis"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
