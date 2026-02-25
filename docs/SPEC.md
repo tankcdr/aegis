@@ -1,8 +1,9 @@
 # Aegis Protocol Specification
 
-**Version:** 0.1.0-draft  
+**Version:** 0.2.0-draft  
 **Authors:** Chris Madison (Long Run Advisory)  
 **Created:** 2026-02-23  
+**Updated:** 2026-02-25  
 **Status:** Draft  
 
 ---
@@ -18,11 +19,12 @@
 7. [Trust Scoring Model](#7-trust-scoring-model)
 8. [Identity Resolution](#8-identity-resolution)
 9. [Web3 Bridge](#9-web3-bridge)
-10. [Security Considerations](#10-security-considerations)
-11. [Fraud Detection Engine](#11-fraud-detection-engine)
-12. [Cold-Start Trust](#12-cold-start-trust)
-13. [Trust Revocation and Decay](#13-trust-revocation-and-decay)
-14. [Roadmap](#14-roadmap)
+10. [Agent Communication Protocol Integration](#10-agent-communication-protocol-integration)
+11. [Security Considerations](#11-security-considerations)
+12. [Fraud Detection Engine](#12-fraud-detection-engine)
+13. [Cold-Start Trust](#13-cold-start-trust)
+14. [Trust Revocation and Decay](#14-trust-revocation-and-decay)
+15. [Roadmap](#15-roadmap)
 
 ---
 
@@ -63,6 +65,20 @@ A trust layer that:
 - Provides transparent, evidence-backed trust scores
 - Is open, composable, and embeddable by any platform
 
+### 1.4 Positioning
+
+**Aegis is the Gitcoin Passport for agents.**
+
+Gitcoin Passport solved the Sybil resistance problem for humans in the Ethereum ecosystem by aggregating identity signals (GitHub, ENS, Twitter, on-chain activity) into a portable trust score. Aegis applies the same architecture to agents — aggregating signals from GitHub (author identity), Moltbook (community reputation), ClawHub (skill history), ERC-8004 (on-chain identity), and SATI (Solana reputation) into a unified, portable agent trust score.
+
+**Aegis is the aggregation layer above ERC-8004.**
+
+ERC-8004 (Ethereum) and SATI (Solana) are excellent on-chain identity and reputation primitives. Their own specification notes: "We expect reputation systems around reviewers/clientAddresses to emerge." Aegis is that system. It does not compete with ERC-8004 — it consumes ERC-8004 as one signal source among many, bridges web2 trust into the on-chain world, and aggregates across chains that cannot see each other.
+
+**Aegis is protocol, not product.**
+
+The goal is an open standard and reference implementation. Any platform — ClawHub, Moltbook, OpenClaw, MCP marketplace, A2A directory — can embed Aegis as their trust layer without modification. Platforms contribute their own signal providers and benefit from the aggregated trust graph that emerges.
+
 ---
 
 ## 2. Design Principles
@@ -86,6 +102,22 @@ Every trust score MUST include the signals that contributed to it, their individ
 ### 2.5 Composability
 
 Aegis MUST be embeddable by platforms. ClawHub, Moltbook, OpenClaw, or any agent framework SHOULD be able to integrate Aegis as their trust layer without forking or modifying the protocol. The API MUST be stateless and cacheable where appropriate.
+
+### 2.6 Evolutionary Stability
+
+A trust system that can be gamed indefinitely is not a trust system — it is a leaderboard for skilled manipulators. Aegis design is informed by mechanism design theory: the goal is not merely to *detect* dishonesty after the fact, but to structure incentives so that *honest behavior is the dominant strategy*.
+
+Concretely, this means:
+- Signals are designed so that the cost of manufacturing a fraudulent signal exceeds its trust value
+- Vouching mechanics include skin-in-the-game (vouchers stake reputation)
+- The scoring model applies diminishing returns on same-category signals to reduce the payoff from Sybil attacks
+- Trust decay penalizes inactivity, ensuring reputation must be continuously earned — not hoarded
+
+This principle is grounded in recent research on decentralized LLM-based multi-agent service economies (Wang et al., 2025 — "Ev-Trust") which demonstrates that naive reputation accumulation mechanisms are not evolutionarily stable under rational adversaries. Aegis adopts mechanism design primitives that produce stable equilibria: honest agents should weakly dominate gaming strategies over the long run.
+
+### 2.7 Uncertainty as a First-Class Value
+
+"No data" and "data says 50/50" are not the same thing, but a single score of `0.5` cannot distinguish them. Aegis expresses trust using *opinion tuples* internally (see Section 7.1) derived from Subjective Logic (Jøsang, 2001): `(belief, disbelief, uncertainty)`. The `confidence` field in API responses surfaces this distinction to callers. Consumers should interpret low confidence as "we don't know yet" — distinct from "we have evidence of untrustworthiness."
 
 ---
 
@@ -996,13 +1028,51 @@ POST /supported    → boolean
 
 ## 7. Trust Scoring Model
 
-### 7.1 Signal Normalization
+### 7.1 Subjective Logic and Opinion Tuples
 
-All signal scores MUST be normalized to the range [0.0, 1.0] by the producing provider before submission. The protocol does not re-normalize scores.
+Aegis adopts Subjective Logic (Jøsang, 2001) as the formal foundation for trust representation. Traditional reputation systems collapse trust into a single scalar value, which cannot distinguish between *no evidence* and *conflicting evidence* — yet this distinction is critical for safe agent interaction.
 
-### 7.2 Composite Scoring
+A **Subjective Logic opinion** is a tuple `ω = (b, d, u, a)` where:
+- `b` (belief) — evidence supporting trust, in [0, 1]
+- `d` (disbelief) — evidence against trust, in [0, 1]  
+- `u` (uncertainty) — lack of evidence, in [0, 1]
+- `a` (base rate) — prior expectation absent evidence, in [0, 1]
 
-The Trust Aggregation Engine computes a composite trust score using weighted aggregation:
+Constraint: `b + d + u = 1`
+
+The projected trust score (used in API responses) is: `trust_score = b + a × u`
+
+This formulation enables Aegis to correctly represent:
+
+| Situation | b | d | u | trust_score (a=0.5) |
+|-----------|---|---|---|---------------------|
+| New agent, no data | 0.0 | 0.0 | 1.0 | 0.50 |
+| Strong positive evidence | 0.85 | 0.05 | 0.10 | 0.90 |
+| Conflicting evidence | 0.35 | 0.35 | 0.30 | 0.50 |
+| Known bad actor | 0.05 | 0.90 | 0.05 | 0.08 |
+
+Note: "New agent, no data" and "conflicting evidence" both project to 0.50, but have very different `confidence` values (1 − u). API consumers MUST treat these cases differently — the `confidence` field in responses reflects this distinction.
+
+**Internal vs. External representation:**
+- Internally, the Scoring Engine operates on opinion tuples
+- Externally, the API exposes `trust_score` (projected value) and `confidence` (1 − u)
+- Signal providers submit scores as [0, 1] scalars; the engine converts them to opinion tuples using Bayesian mapping based on the provider's declared `confidence`
+
+**Opinion fusion:**
+When combining opinions from multiple providers, Aegis uses Subjective Logic's **cumulative belief fusion** for independent sources:
+```
+b_fused = (b₁·u₂ + b₂·u₁) / (u₁ + u₂ - u₁·u₂)
+u_fused = (u₁·u₂) / (u₁ + u₂ - u₁·u₂)
+```
+This is mathematically equivalent to Bayesian updating and is more principled than simple weighted averaging, which can over-weight high-confidence signals from a single category.
+
+### 7.2 Signal Normalization
+
+All signal scores MUST be normalized to the range [0.0, 1.0] by the producing provider before submission. The protocol does not re-normalize scores. Providers SHOULD report `confidence` values that reflect actual data coverage — a provider with access to only 1 data point MUST NOT report confidence > 0.5.
+
+### 7.3 Composite Scoring
+
+The Trust Aggregation Engine computes a composite trust score using opinion fusion (Section 7.1) across all received signals. For compatibility and implementation simplicity, the weighted aggregation approximation is also supported:
 
 ```
 trust_score = Σ(signal_score_i × weight_i × confidence_i) / Σ(weight_i × confidence_i)
@@ -1013,13 +1083,16 @@ Where:
 - `weight_i` is the signal weight (determined by context and signal type)
 - `confidence_i` is the provider's confidence in the signal
 
-### 7.3 Weight Assignment
+Implementations SHOULD prefer opinion fusion over weighted averaging when operating in adversarial environments (open public instances). Weighted averaging is acceptable for self-hosted or embedded deployments with trusted providers.
+
+### 7.4 Weight Assignment
 
 Signal weights are determined by:
 
 1. **Signal category weight** — Security signals weigh more than social signals in high-risk contexts
 2. **Provider reliability** — Providers with higher historical accuracy get higher weights
 3. **Context adjustment** — Risk level in the query context shifts weight distribution
+4. **Context-capability alignment** — Following COBRA (Zeynalvand et al., 2019), weights shift based on the *type of action being taken*, not just the risk level. An agent trusted for code review is not necessarily trusted for financial delegation — the scoring engine adjusts signal weights based on the action being evaluated.
 
 Default weight categories:
 - `security_audit`: 1.5x base weight
@@ -1030,7 +1103,17 @@ Default weight categories:
 
 When `context.risk_level` is `high` or `critical`, security and code analysis weights are doubled.
 
-### 7.4 Confidence Computation
+Action-based weight modifiers (applied on top of category weights):
+
+| Action | Boosted Categories | Reduced Categories |
+|--------|-------------------|-------------------|
+| `install` | security_audit, code_analysis | social_graph |
+| `execute` | code_analysis, validation | community_karma |
+| `delegate` | author_reputation, validation | social_graph |
+| `transact` | on_chain_reputation, staked_validation | community_karma, social_graph |
+| `review` | author_reputation, community_karma | — |
+
+### 7.5 Confidence Computation
 
 Composite confidence reflects the breadth and quality of available signals:
 
@@ -1044,7 +1127,7 @@ Where:
 - `avg_signal_confidence` is the mean confidence across received signals
 - `diversity_bonus` is 1.0 + 0.1 per unique signal category (capped at 1.5)
 
-### 7.5 Confidence Decay
+### 7.6 Confidence Decay
 
 Signal freshness affects contribution to the composite score:
 
@@ -1055,7 +1138,7 @@ decay_factor = max(0.1, 1.0 - (age / (ttl × 3)))
 
 Signals beyond 3× their TTL contribute at 10% effectiveness, signaling that re-evaluation is needed.
 
-### 7.6 Risk Level Mapping
+### 7.7 Risk Level Mapping
 
 The composite trust score maps to a risk level:
 
@@ -1069,7 +1152,7 @@ The composite trust score maps to a risk level:
 
 These thresholds shift based on context risk level. In a `critical` context, a score of 0.7 maps to `medium` risk rather than `low`.
 
-### 7.7 Minimum Signal Thresholds
+### 7.8 Minimum Signal Thresholds
 
 A trust evaluation MUST have at least 2 signals from distinct providers to produce a `recommendation` other than `review`. Single-signal evaluations always return `recommendation: "review"` regardless of score.
 
@@ -1109,7 +1192,47 @@ Identity links are public by default — linking is an explicit act of associati
 
 ## 9. Web3 Bridge
 
-### 9.1 ERC-8004 Integration (Ethereum/L2)
+### 9.1 Ethereum Attestation Service (EAS)
+
+[EAS](https://attest.org) is the canonical open-source attestation infrastructure on Ethereum and leading L2s. With 8.7M+ attestations, 450k+ unique attesters, and deployed on Optimism, Base, Arbitrum, and others, it is the natural settlement layer for Aegis trust evaluations.
+
+**Why EAS over a custom attestation contract:**
+- Already deployed and indexed on Base L2 (Aegis's target chain)
+- Schema registry allows Aegis to define a trust evaluation schema once, usable by any EAS consumer
+- Subgraph indexers already exist — no indexing infrastructure to maintain
+- Token-free, open public good — aligned with Aegis's protocol-not-product principle
+- Composable with any other EAS-based system (Gitcoin Passport, Optimism RetroPGF, etc.)
+
+**Aegis EAS Schema:**
+
+```json
+{
+  "name": "AegisTrustEvaluation",
+  "schema": "address subject, uint256 trustScore, uint256 confidence, uint8 riskLevel, string signalSummary, string queryId",
+  "resolver": "0x0000000000000000000000000000000000000000",
+  "revocable": true
+}
+```
+
+Fields:
+- `subject` — Address of the evaluated agent (ERC-8004 registered wallet, or derived from identity)
+- `trustScore` — Projected trust score as uint256, scaled by 1e18 (i.e., 0.87 → 870000000000000000)
+- `confidence` — Composite confidence, same scaling
+- `riskLevel` — 0=minimal, 1=low, 2=medium, 3=high, 4=critical
+- `signalSummary` — IPFS CID of the full signal JSON (preserves evidence without bloating chain storage)
+- `queryId` — Off-chain query ID for correlation
+
+**On-chain flow:**
+1. Trust query executes off-chain (as normal)
+2. Signal evidence is pinned to IPFS → CID included in attestation
+3. EAS attestation is created on Base L2 (~$0.01 per attestation)
+4. Attestation UID is returned to caller in `metadata.attestation_uid`
+5. Any other system can verify or consume the attestation via EAS's standard interface
+
+**EAS as a signal source:**
+Aegis can also *read* existing EAS attestations as trust signals. If another system (e.g., Gitcoin Passport, an audit DAO) has attested to a subject using a known schema, Aegis's EAS Provider can incorporate those attestations as additional signals.
+
+### 9.2 ERC-8004 Integration (Ethereum/L2)
 
 ERC-8004 defines three on-chain registries: Identity, Reputation, and Validation. Aegis integrates with all three:
 
@@ -1119,9 +1242,10 @@ ERC-8004 defines three on-chain registries: Identity, Reputation, and Validation
 
 **As a signal producer:**
 - Aegis can write trust evaluations to the ERC-8004 Reputation Registry
+- EAS attestations (Section 9.1) serve as the off-chain evidence anchor for on-chain ERC-8004 feedback entries
 - This bridges web2 trust signals onto the chain for composability with other on-chain systems
 
-### 9.2 SATI Integration (Solana)
+### 9.3 SATI Integration (Solana)
 
 [SATI](https://github.com/cascade-protocol/sati) (Solana Agent Trust Infrastructure) implements ERC-8004-compatible agent trust on Solana using Token-2022 NFTs for identity and compressed attestations for reputation.
 
@@ -1139,17 +1263,19 @@ ERC-8004 defines three on-chain registries: Identity, Reputation, and Validation
 - An agent registered on both chains (`erc8004://eip155:8453:0x742.../42` and `sati://solana:EtWTRA.../MintAddr`) can link these identities through Aegis, aggregating reputation from both ecosystems
 - This cross-chain aggregation is a capability that neither ERC-8004 nor SATI can provide independently
 
-### 9.3 Attestation Anchoring
+### 9.4 Attestation Anchoring
 
-When a trust evaluation warrants on-chain permanence (high-stakes decisions, regulatory requirements, or cross-organizational trust), it can be anchored as an attestation:
+When a trust evaluation warrants on-chain permanence (high-stakes decisions, regulatory requirements, or cross-organizational trust), it can be anchored as an EAS attestation (see Section 9.1):
 
 1. Client requests anchoring via `POST /v1/attest/anchor` with a `query_id`
-2. Aegis serializes the trust evaluation (score, signals, evidence hashes)
-3. The serialized data is submitted to the Attestation Bridge contract
-4. The contract emits an event with the attestation hash
-5. The attestation is verifiable via `GET /v1/attest/verify/{hash}`
+2. Aegis serializes the trust evaluation and pins signal evidence to IPFS
+3. EAS attestation is created on Base L2 using the AegisTrustEvaluation schema
+4. The attestation UID is returned and is verifiable via EAS's standard `getAttestation(uid)` interface
+5. Optionally, an ERC-8004 Reputation Registry entry is written, referencing the EAS attestation as its evidence URI
 
-### 9.4 x402 Integration
+This two-layer approach separates concerns: EAS handles generic attestation storage and indexing; ERC-8004 handles agent-specific reputation aggregation.
+
+### 9.5 x402 Integration
 
 For premium trust queries (e.g., queries requiring staked re-execution or TEE verification), Aegis MAY support x402 payment:
 
@@ -1159,7 +1285,105 @@ For premium trust queries (e.g., queries requiring staked re-execution or TEE ve
 
 ---
 
-## 10. Security Considerations
+## 10. Agent Communication Protocol Integration
+
+Agent ecosystems converge on two dominant interoperability protocols: **MCP** (Model Context Protocol) for tool/resource sharing and **A2A** (Agent-to-Agent) for cross-organizational task orchestration. Aegis is the missing trust layer for both.
+
+### 10.1 MCP Integration
+
+MCP servers advertise tools, resources, and prompts. Agents consuming MCP servers face the same trust problem as agents installing ClawHub skills: the server's identity and intentions are opaque.
+
+**Aegis as MCP trust oracle:**
+
+```bash
+# Before connecting to an MCP server, query Aegis
+curl -X POST https://aegis.example/v1/trust/query \
+  -d '{
+    "subject": {
+      "type": "skill",
+      "namespace": "mcp",
+      "id": "https://mcp.weatherapi.example/v1"
+    },
+    "context": {
+      "action": "execute",
+      "permissions_requested": ["network", "read"]
+    }
+  }'
+```
+
+**MCP namespace:**
+- Subject type: `skill`
+- Namespace: `mcp`
+- ID: The MCP server endpoint URL
+- Identity resolution: Maps MCP server domain → GitHub org → ERC-8004 registration (via `.well-known/agent-registration.json` defined in ERC-8004)
+
+**OpenClaw integration point:**
+OpenClaw can call Aegis before loading any MCP server in a session. If trust score is below the configured threshold for the requested permissions, the agent declines the connection and surfaces the reason to the user.
+
+### 10.2 A2A Integration
+
+A2A (Agent-to-Agent) handles authentication and task orchestration across organizational boundaries. A2A uses **AgentCards** (`.well-known/agent-card.json`) to advertise capabilities. Aegis adds a trust dimension to A2A agent discovery.
+
+**Aegis in the A2A agent selection flow:**
+
+```
+1. Orchestrator agent receives a task requiring capability X
+2. Agent discovers candidates via A2A directory or ERC-8004 registry
+3. For each candidate, orchestrator queries Aegis:
+   POST /v1/trust/query { subject: a2a://agent.example.com, context: { action: "delegate", ... } }
+4. Orchestrator selects the candidate with highest trust above threshold
+5. A2A task is delegated; post-completion, orchestrator submits feedback to ERC-8004
+```
+
+**A2A feedback as trust signal:**
+After an A2A task completes, both parties can submit structured feedback. Aegis reads this feedback (via the ERC-8004 Reputation Registry) as a `task_completion` signal. The A2A task ID and context ID are preserved as evidence, enabling dispute resolution.
+
+**AgentCard trust field (proposed extension):**
+Aegis proposes a standard `trust` field in AgentCards:
+
+```json
+{
+  "name": "WeatherAgent",
+  "url": "https://agent.example.com",
+  "trust": {
+    "aegis_endpoint": "https://aegis.example/v1/trust/score/a2a%3A%2F%2Fagent.example.com",
+    "erc8004": "eip155:8453:0x8004.../42",
+    "eas_uid": "0xabc123..."
+  }
+}
+```
+
+This allows any A2A-compatible agent to instantly check an agent's trust score without prior Aegis configuration.
+
+### 10.3 OASF Integration
+
+The Open Agent Schema Framework (OASF) defines structured skill and domain declarations for agents. ERC-8004 already supports OASF endpoints. Aegis can incorporate OASF skill declarations as context for trust queries:
+
+- An agent claiming OASF skill `code-review` with verified audits receives higher trust for `action: "review"` queries
+- OASF domain declarations enable capability-specific trust scores without a full evaluation
+
+### 10.4 Recommended Integration Pattern
+
+For any platform embedding Aegis:
+
+```typescript
+// Before any cross-agent or cross-skill interaction
+async function shouldProceed(subject: string, action: string, riskLevel: string): Promise<boolean> {
+  const trust = await aegis.query({ subject, context: { action, risk_level: riskLevel } });
+  
+  if (trust.recommendation === 'deny') return false;
+  if (trust.recommendation === 'caution' && riskLevel === 'high') return false;
+  if (trust.confidence < 0.3) {
+    // Log low-confidence evaluation — may want to require human approval
+    await requestHumanApproval(subject, trust);
+  }
+  return true;
+}
+```
+
+---
+
+## 11. Security Considerations
 
 ### 10.1 Trust Score Gaming
 
@@ -1210,7 +1434,7 @@ For premium trust queries (e.g., queries requiring staked re-execution or TEE ve
 
 ---
 
-## 11. Fraud Detection Engine
+## 12. Fraud Detection Engine
 
 Aegis does not merely score trust — it actively detects deception. The Fraud Detection Engine operates as a meta-layer across all signals and providers, identifying patterns that indicate manipulation, impersonation, or coordinated attacks.
 
@@ -1331,7 +1555,7 @@ When the Fraud Detection Engine flags an anomaly, it appears in the trust query 
 
 ---
 
-## 12. Cold-Start Trust
+## 13. Cold-Start Trust
 
 The cold-start problem is fundamental: how does a brand-new agent with zero history, zero reputation, and zero connections establish *any* trust? This is not merely a bootstrapping inconvenience — it determines whether the system is open (anyone can join and earn trust) or closed (only pre-approved entities participate).
 
@@ -1440,7 +1664,7 @@ The cold-start mechanisms are specifically hardened against abuse:
 
 ---
 
-## 13. Trust Revocation and Decay
+## 14. Trust Revocation and Decay
 
 Trust is not permanent. Agents can lose trust gradually (decay) or suddenly (revocation). This section defines how Aegis handles both, including the cascade effects when a trusted agent turns malicious.
 
@@ -1563,43 +1787,46 @@ When a widespread attack is detected (multiple agents compromised, malicious ski
 
 ---
 
-## 14. Roadmap
+## 15. Roadmap
 
-### Phase 1: Foundation
+### Phase 1: Foundation *(Synthesis Hackathon MVP — March 2026)*
 
-- Core Trust Query API
-- Trust Aggregation Engine with weighted scoring
-- Built-in providers: GitHub, Moltbook, ClawHub
-- Identity resolution with cross-namespace linking
-- Fraud Detection Engine (anomaly detection, cross-provider consistency)
-- Cold-start trust tiers and proof-of-capability challenges
-- Public instance deployment
+- Core Trust Query API (`POST /v1/trust/query`, `GET /v1/trust/score/{subject}`)
+- Trust Aggregation Engine with Subjective Logic opinion fusion
+- Built-in providers: **GitHub** (fully working), Moltbook, ClawHub (stubs)
+- Basic identity resolution with cross-namespace linking
+- **EAS attestation anchoring** on Base L2 (on-chain artifact for judges)
+- ERC-8004 identity provider (read on-chain registration)
+- MCP and A2A integration hooks (Section 10)
+- Public instance deployment with live demo
 
 ### Phase 2: Ecosystem Integration
 
-- OpenClaw skill for agent-native trust queries
-- ClawHub integration (trust badges on skill pages)
+- OpenClaw native skill — agents can query Aegis in-session without HTTP overhead
+- ClawHub integration — trust badges on skill pages, pre-install warnings
 - Community audit submission and tracking
 - Vouching system and reputation contagion
 - Trust Advisory broadcast system (emergency response)
 - Provider SDK for third-party provider development
+- Gitcoin Grants application — trust infrastructure is a public good
 
 ### Phase 3: Web3 Bridge
 
-- ERC-8004 signal provider (read Ethereum/L2 on-chain reputation)
-- SATI signal provider (read Solana on-chain reputation, blind feedback)
+- ERC-8004 reputation provider (read and write on-chain reputation signals)
+- SATI provider (Solana on-chain reputation, blind feedback with confidence bonus)
 - Cross-chain identity resolution via CAIP-2
-- Attestation anchoring (write trust scores to ERC-8004 and/or SATI)
+- EAS schema for agent-to-agent feedback attestations
 - On-chain identity linking via EIP-712 (Ethereum) and Ed25519 (Solana) signatures
-- Base L2 and Solana deployment for low-cost attestations
+- Optimism RetroPGF application — retroactive funding for deployed trust infrastructure
 
 ### Phase 4: Advanced Trust
 
-- x402 payment integration for premium queries
-- Staked validation (re-execution with economic guarantees)
+- x402 payment integration for premium queries (staked re-execution)
 - zkML proof verification provider
 - TEE attestation provider
 - Insurance pools for high-value trust assertions
+- Multi-sig community treasury (BTC, ETH, SOL) for protocol maintenance
+- Governance: Tier 4 (Anchor) agents participate in protocol upgrades
 
 ---
 
@@ -1615,6 +1842,9 @@ When a widespread attack is detected (multiple agents compromised, malicious ski
 | `npm` | npm package | `@openclaw/weather-skill` |
 | `did` | Decentralized Identifier | `did:key:z6Mk...` |
 | `agentmail` | AgentMail address | `agent@agentmail.to` |
+| `mcp` | MCP server endpoint | `https://mcp.example.com/v1` |
+| `a2a` | A2A agent card domain | `agent.example.com` |
+| `eas` | EAS attestation UID | `0xabc123...` |
 
 New namespaces can be proposed via pull request to the specification.
 
@@ -1635,6 +1865,40 @@ New namespaces can be proposed via pull request to the specification.
 | Validation | `staked_reexecution` | Re-execution with economic stake |
 | Validation | `tee_attestation` | TEE-verified execution |
 | Validation | `zkml_proof` | Zero-knowledge ML proof |
+| On-Chain | `on_chain_reputation` | Aggregated ERC-8004 / SATI reputation |
+| On-Chain | `eas_attestation` | EAS attestation from a trusted attester |
+| On-Chain | `staked_validation` | Validator stake-secured confirmation |
+| A2A | `task_completion` | Completed A2A task with positive feedback |
+| A2A | `task_failure` | Failed or disputed A2A task |
+
+---
+
+## Appendix C: References
+
+**Foundational Theory**
+
+- Kamvar, S., Schlosser, M., & Garcia-Molina, H. (2003). *The EigenTrust algorithm for reputation management in P2P networks.* WWW '03.
+- Jøsang, A. (2001). *A logic for uncertain probabilities.* International Journal of Uncertainty, Fuzziness and Knowledge-Based Systems.
+- Zimmermann, P. (1992). *PGP User's Guide.* MIT Press. (Web of Trust)
+- Douceur, J. (2002). *The Sybil Attack.* IPTPS '02.
+
+**Recent Research**
+
+- Wang, J. et al. (2025). *Ev-Trust: An Evolutionary Stable Trust Mechanism for Decentralized LLM-Based Multi-Agent Service Economies.* arXiv:2512.XXXXX.
+- Zeynalvand, L., Luo, T., & Zhang, J. (2019). *COBRA: Context-aware Bernoulli Neural Networks for Reputation Assessment.* arXiv:1912.09672.
+- Lygizou, Z. & Kalles, D. (2025). *A biologically Inspired Trust Model for Open Multi-Agent Systems that is Resilient to Rapid Performance Fluctuations.* arXiv:2504.XXXXX.
+- Shi, D. & Joo, K. (2025). *Sybil-Resistant Service Discovery for Agent Economies.* arXiv:2510.XXXXX.
+
+**Standards and Protocols**
+
+- ERC-8004: Trustless Agents. De Rossi, M. et al. (2025). https://eips.ethereum.org/EIPS/eip-8004
+- Ethereum Attestation Service (EAS). https://attest.org
+- SATI: Solana Agent Trust Infrastructure. https://github.com/cascade-protocol/sati
+- x402: HTTP-native payments. https://www.x402.org
+- CAIP-2: Blockchain ID Specification. https://github.com/ChainAgnostic/CAIPs/blob/main/CAIPs/caip-2.md
+- W3C DID Core. https://www.w3.org/TR/did-core/
+- MCP: Model Context Protocol. https://modelcontextprotocol.io
+- A2A: Agent-to-Agent Protocol. https://google.github.io/A2A
 
 ---
 
