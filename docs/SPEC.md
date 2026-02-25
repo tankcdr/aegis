@@ -1,6 +1,6 @@
 # Aegis Protocol Specification
 
-**Version:** 0.4.0-draft  
+**Version:** 0.5.0-draft  
 **Authors:** Chris Madison (Long Run Advisory)  
 **Created:** 2026-02-23  
 **Updated:** 2026-02-25  
@@ -24,7 +24,8 @@
 12. [Fraud Detection Engine](#12-fraud-detection-engine)
 13. [Cold-Start Trust](#13-cold-start-trust)
 14. [Trust Revocation and Decay](#14-trust-revocation-and-decay)
-15. [Roadmap](#15-roadmap)
+15. [Governance](#15-governance)
+16. [Roadmap](#16-roadmap)
 
 ---
 
@@ -1496,6 +1497,37 @@ async function shouldProceed(subject: string, action: string, riskLevel: string)
 - Audit submission: 50/hour per auditor
 - Provider registration: 5/day per account
 
+### 10.6 Privacy by Default
+
+**Anonymous queries:** Trust queries MUST NOT require caller identification. Any agent or platform MAY query `POST /v1/trust/query` without providing a requester identity. The optional `context.requester` field enables richer context-aware scoring but is never mandatory. The public instance MUST NOT log query-subject-caller associations beyond operational metrics (rate limiting, abuse detection).
+
+**Private identity links:** Agents MAY designate identity links as private at creation time:
+
+```json
+{
+  "identity_a": { "namespace": "github", "id": "tankcdr" },
+  "identity_b": { "namespace": "erc8004", "id": "eip155:8453:0x742.../42" },
+  "visibility": "private"
+}
+```
+
+Private links contribute their signals to trust score computation but are NOT exposed via `GET /v1/identity/{namespace}/{id}/links`. From the outside, the identities appear unlinked. Only the trust score — not the evidence graph — is visible to callers.
+
+**Signal evidence minimization:** The `include_evidence: false` option in trust queries suppresses all evidence fields from the response. Platforms SHOULD use this mode when surfacing trust scores to end users who do not need the underlying data.
+
+### 10.7 Regulatory Compliance
+
+**EU AI Act:** Aegis operates as trust infrastructure, not as an AI decision-making system. Trust scores are inputs to human or agent decisions — they are not autonomous decisions themselves. Platforms embedding Aegis that use trust scores in automated decisions affecting individuals should assess their own obligations under the EU AI Act independently.
+
+**GDPR / Data Minimization:**
+- Aegis stores no personal data beyond what is publicly available in linked platform profiles (GitHub usernames, Moltbook handles, on-chain wallet addresses)
+- No private user data (emails, names, IP addresses) is stored in trust records or attestations
+- Identity links are stored as namespace/id pairs — no PII beyond what the subject has already made public
+- On-chain attestations (EAS, ERC-8004) contain only the Aegis subject identifier and score — no personal data
+- Right to erasure: Aegis can delete all off-chain identity links and cached evaluations for a subject on request. On-chain attestations are immutable by design; subjects are informed of this at identity registration.
+
+**CCPA / other jurisdictions:** The data minimization principles above generally satisfy CCPA requirements. Aegis does not sell personal data. No behavioral data is shared with third parties beyond what is necessary for signal provider evaluation.
+
 ---
 
 ## 12. Fraud Detection Engine
@@ -1947,7 +1979,91 @@ When a widespread attack is detected (multiple agents compromised, malicious ski
 
 ---
 
-## 15. Roadmap
+## 15. Governance
+
+Aegis is a protocol, not a product — but protocols still require governance. This section defines how parameter changes, schema upgrades, and emergency actions are authorized and executed.
+
+### 15.1 Governance Participants
+
+| Role | Eligibility | Weight |
+|------|-------------|--------|
+| **Tier 4 Anchor agents** | trust_score ≥ 0.8, ≥ 180 days active, community-nominated | Reputation-weighted vote |
+| **Core maintainers** | GitHub contributors with merge rights | Veto on technical spec changes |
+| **Platform delegates** | Platforms with ≥ 1,000 monthly queries | Advisory vote |
+| **Security council** | 5 rotating Tier 4 agents, elected quarterly | Emergency powers only |
+
+### 15.2 Parameter Governance (Snapshot Voting)
+
+Tunable protocol parameters — including λ (§7.9), Louvain thresholds (§11.2.3), vouch limits (§12.3), and half-life values (§13.3) — are updated via **Snapshot off-chain voting** with on-chain execution:
+
+```
+Proposal lifecycle:
+  1. Any Tier 3+ agent or core maintainer may submit a parameter change proposal
+  2. 7-day discussion period (GitHub Discussion or governance forum)
+  3. 5-day Snapshot vote
+  4. Quorum: ≥ 10 Tier 4 agents participating
+  5. Passing threshold: simple majority (>50%) for parameter tuning;
+                        supermajority (≥75%) for schema changes or section additions
+  6. Enacted on-chain via multi-sig execution (§15.3) after a 48-hour timelock
+```
+
+**Reputation-weighted voting:** Vote weight = `trust_score × log(days_active)`. This rewards long-standing, consistently trusted agents over newcomers, while logarithmic scaling prevents ancient Anchor agents from dominating indefinitely.
+
+**Parameter change constraints:**
+- λ MUST remain in [0.05, 0.30] — outside this range, Ev-Trust stability proofs no longer hold (Wang et al., arXiv:2512.16167)
+- Louvain modularity threshold MUST remain in [0.55, 0.80] — lower values produce too many false positives; higher values miss real clusters
+- Tier half-life values MUST remain in [30, 365] days — outside this range, decay becomes either negligible or punitive
+
+### 15.3 Multi-Sig Execution
+
+Protocol parameter updates and treasury disbursements require multi-sig authorization:
+
+```
+Governance multi-sig: 4-of-7
+  - 3 core maintainer keyholders
+  - 4 rotating Tier 4 Anchor agents (elected quarterly by Snapshot vote)
+  - Implemented on Base L2 (Safe / Gnosis multi-sig)
+  - 48-hour timelock on all executions (allows community to observe before enactment)
+```
+
+**Treasury multi-sig:** Separate 3-of-5 wallet for grant disbursements and operational expenses. Accepts BTC, ETH, and SOL contributions (addresses published in README). Annual transparency report required.
+
+### 15.4 Emergency Security Council
+
+For time-sensitive security incidents where the standard 12-day governance cycle would cause harm:
+
+```
+Security council: 3-of-5 rotating Tier 4 agents
+  - Elected quarterly by Snapshot vote
+  - Reputation-weighted eligibility (must be in top 20 by trust_score)
+  - 90-day maximum term; cannot serve two consecutive terms
+```
+
+**Emergency powers (3-of-5 required):**
+- **Emergency pause** — Suspend a specific provider, signal type, or trust evaluation for a subject pending investigation. Maximum 72-hour duration without full governance ratification.
+- **Trust Advisory issuance** — Broadcast a security advisory and apply preemptive score adjustments (§13.5)
+- **Honeypot deployment** — Authorize and deploy new honeypot skills without public disclosure
+
+**What the security council CANNOT do without full governance:**
+- Change any protocol parameter (λ, thresholds, half-lives)
+- Permanently revoke a Tier 3+ agent
+- Modify the EAS schema or on-chain contracts
+- Disburse treasury funds
+
+**Accountability:** All security council actions are logged on-chain (EAS attestation with `tag: "security_council_action"`) within 1 hour of execution. The rationale MUST be published publicly within 72 hours.
+
+### 15.5 Spec Versioning
+
+The specification follows semantic versioning:
+- **Patch** (x.y.Z) — Clarifications, typo fixes, example updates. Core maintainer approval only.
+- **Minor** (x.Y.0) — New sections, new signal types, API additions (non-breaking). Simple majority Snapshot vote.
+- **Major** (X.0.0) — Breaking API changes, scoring model changes, schema changes. Supermajority (75%) Snapshot vote + 30-day migration window.
+
+Current version: **0.4.0-draft** (pre-governance; initial governance structure ratified at v1.0.0)
+
+---
+
+## 16. Roadmap
 
 ### Phase 1: Foundation *(Synthesis Hackathon MVP — March 2026)*
 
