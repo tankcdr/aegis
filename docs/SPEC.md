@@ -113,7 +113,7 @@ Concretely, this means:
 - The scoring model applies diminishing returns on same-category signals to reduce the payoff from Sybil attacks
 - Trust decay penalizes inactivity, ensuring reputation must be continuously earned — not hoarded
 
-This principle is grounded in recent research on decentralized LLM-based multi-agent service economies (Wang et al., 2025 — "Ev-Trust") which demonstrates that naive reputation accumulation mechanisms are not evolutionarily stable under rational adversaries. Aegis adopts mechanism design primitives that produce stable equilibria: honest agents should weakly dominate gaming strategies over the long run.
+This principle is grounded in recent research on decentralized LLM-based multi-agent service economies (Wang et al., arXiv:2512.16167, 2025) which demonstrates that naive reputation accumulation mechanisms are not evolutionarily stable under rational adversaries. Aegis adopts mechanism design primitives that produce stable equilibria: honest agents should weakly dominate gaming strategies over the long run.
 
 ### 2.7 Uncertainty as a First-Class Value
 
@@ -1884,7 +1884,7 @@ New namespaces can be proposed via pull request to the specification.
 
 **Recent Research**
 
-- Wang, J. et al. (2025). *Ev-Trust: An Evolutionary Stable Trust Mechanism for Decentralized LLM-Based Multi-Agent Service Economies.* arXiv:2512.XXXXX.
+- Wang, J., Yang, S., Qin, J., Li, J., Wang, Y., Zhao, Y., & Guo, K. (2025). *Ev-Trust: An Evolutionary Stable Trust Mechanism for Decentralized LLM-Based Multi-Agent Service Economies.* arXiv:2512.16167v2 [cs.MA] (submitted 18 Dec 2025, revised 23 Feb 2026).
 - Zeynalvand, L., Luo, T., & Zhang, J. (2019). *COBRA: Context-aware Bernoulli Neural Networks for Reputation Assessment.* arXiv:1912.09672.
 - Lygizou, Z. & Kalles, D. (2025). *A biologically Inspired Trust Model for Open Multi-Agent Systems that is Resilient to Rapid Performance Fluctuations.* arXiv:2504.XXXXX.
 - Shi, D. & Joo, K. (2025). *Sybil-Resistant Service Discovery for Agent Economies.* arXiv:2510.XXXXX.
