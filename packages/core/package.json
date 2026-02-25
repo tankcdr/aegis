@@ -1,7 +1,7 @@
 {
   "name": "@aegis-protocol/core",
   "version": "0.1.0",
-  "description": "Aegis trust engine — framework-agnostic, embeddable",
+  "description": "Aegis Protocol trust engine — embeddable, zero AWS dependency",
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -15,17 +15,13 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "node --experimental-vm-modules node_modules/.bin/jest",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "drizzle-orm": "^0.30.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "typescript": "^5.4.0",
-    "jest": "^29.0.0",
-    "@types/jest": "^29.0.0"
+    "typescript": "^5.4.0"
   }
 }

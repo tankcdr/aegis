@@ -1,4 +1,12 @@
-// Trust Aggregation Engine — SPEC §4 (Architecture)
-// Implementation pending — see docs/SPEC.md for full specification.
-
 export { AegisEngine } from './aegis-engine.js';
+export { TrustCache } from './cache.js';
+export {
+  applyContextMultiplier,
+  evTrustAdjust,
+  fuseOpinions,
+  fuseTwo,
+  mapRecommendation,
+  mapRiskLevel,
+  projectScore,
+  signalToOpinion,
+} from './scoring.js';
