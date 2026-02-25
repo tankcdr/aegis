@@ -1,0 +1,9 @@
+{
+  "schemaUID": "0xfff1179b55bf0717c0a071da701b4f597a6bfe0669bcb1daca6a66f0e14d407d",
+  "schema": "string subject, uint256 trustScore, uint256 confidence, uint8 riskLevel, string signalSummary, string queryId",
+  "chainId": "8453",
+  "networkName": "base",
+  "registryAddress": "0x4200000000000000000000000000000000000020",
+  "txHash": "0xd4d38c597fb3f9fa6de4d380be5f327a3db353006952211001eebd42d3f98cc1",
+  "registeredAt": "2026-02-25T02:00:00.000Z"
+}

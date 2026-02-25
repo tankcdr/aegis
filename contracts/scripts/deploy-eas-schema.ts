@@ -2,55 +2,46 @@
  * deploy-eas-schema.ts
  *
  * ONE-TIME SCRIPT — registers the AegisTrustEvaluation schema on EAS (Base L2).
- *
- * Run once per network (mainnet / testnet). After running, save the returned
- * schemaUID to your .env as AEGIS_EAS_SCHEMA_UID and commit config/base.json.
+ * Uses ethers directly (no EAS SDK) for Node 24 compatibility.
  *
  * Usage:
- *   cp .env.example .env          # fill in BASE_RPC_URL + AEGIS_ATTESTATION_PRIVATE_KEY
- *   pnpm deploy:schema            # runs this script
- *
- * What it does:
- *   1. Connects to Base L2 via BASE_RPC_URL
- *   2. Calls SchemaRegistry.register() on the EAS contract with the Aegis schema
- *   3. Prints the schema UID — save this, it never changes
- *   4. Writes config/base.json with the UID for use by the attestation bridge
+ *   pnpm deploy:schema
  *
  * SPEC reference: §9.1 (Ethereum Attestation Service)
  */
 
-import 'dotenv/config';
 import { ethers } from 'ethers';
-import { SchemaRegistry } from '@ethereum-attestation-service/eas-sdk';
-import { writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { writeFile, mkdir } from 'node:fs/promises';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+
+// ─── Load .env manually ───────────────────────────────────────────────────────
+const envPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../.env');
+try {
+  const lines = readFileSync(envPath, 'utf8').split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const [key, ...rest] = trimmed.split('=');
+    if (key && rest.length) process.env[key.trim()] = rest.join('=').trim();
+  }
+} catch { /* .env optional */ }
 
 // ─── Aegis EAS Schema (SPEC §9.1) ────────────────────────────────────────────
-//
-// subject     — Full Aegis subject identifier string
-//               e.g. "erc8004://eip155:8453:0x.../42", "clawhub://author/skill"
-//               string (not address) for cross-namespace support — see SPEC §9.1
-//
-// trustScore  — Projected trust score scaled by 1e18
-//               e.g. 0.87 → 870000000000000000
-//
-// confidence  — Composite confidence, same 1e18 scaling
-//
-// riskLevel   — 0=minimal, 1=low, 2=medium, 3=high, 4=critical
-//
-// signalSummary — IPFS CID of the full signal JSON evidence
-//                 Keeps PII off-chain, evidence verifiable — SPEC §10.6
-//
-// queryId     — Off-chain query correlation ID
-
 const AEGIS_SCHEMA =
   'string subject, uint256 trustScore, uint256 confidence, uint8 riskLevel, string signalSummary, string queryId';
 
-// EAS SchemaRegistry on Base (mainnet + testnet share the same address)
-const SCHEMA_REGISTRY_ADDRESS = '0xA7b39296258348C78294F95B872b282dA851F1b';
+// Base (OP Stack predeploy address — same on mainnet + Sepolia)
+const SCHEMA_REGISTRY_ADDRESS = '0x4200000000000000000000000000000000000020';
+
+const SCHEMA_REGISTRY_ABI = [
+  'function register(string schema, address resolver, bool revocable) returns (bytes32)',
+  'event Registered(bytes32 indexed uid, address indexed registerer, tuple(bytes32 uid, address resolver, bool revocable, string schema) schema)',
+];
 
 async function main() {
-  const rpcUrl = process.env.BASE_RPC_URL;
+  const rpcUrl     = process.env.BASE_RPC_URL;
   const privateKey = process.env.AEGIS_ATTESTATION_PRIVATE_KEY;
 
   if (!rpcUrl || !privateKey) {
@@ -59,42 +50,54 @@ async function main() {
   }
 
   const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const signer = new ethers.Wallet(privateKey, provider);
-  const network = await provider.getNetwork();
+  const signer   = new ethers.Wallet(privateKey, provider);
+  const network  = await provider.getNetwork();
+  const balance  = await provider.getBalance(signer.address);
 
-  console.log(`\n🔗  Connected to chain ${network.chainId} (${network.name})`);
-  console.log(`📋  Schema: ${AEGIS_SCHEMA}\n`);
+  console.log(`\n🔗  Network:  ${network.name} (chainId: ${network.chainId})`);
+  console.log(`📍  Wallet:   ${signer.address}`);
+  console.log(`💰  Balance:  ${ethers.formatEther(balance)} ETH`);
+  console.log(`📋  Schema:   ${AEGIS_SCHEMA}\n`);
 
-  const registry = new SchemaRegistry(SCHEMA_REGISTRY_ADDRESS);
-  registry.connect(signer);
+  const registry = new ethers.Contract(SCHEMA_REGISTRY_ADDRESS, SCHEMA_REGISTRY_ABI, signer);
 
-  console.log('📤  Registering schema...');
-  const tx = await registry.register({
-    schema: AEGIS_SCHEMA,
-    resolverAddress: ethers.ZeroAddress, // no custom resolver
-    revocable: true,
-  });
+  console.log('📤  Registering schema on EAS...');
+  const tx = await registry.register(AEGIS_SCHEMA, ethers.ZeroAddress, true);
+  console.log(`⏳  Transaction: ${tx.hash}`);
+  console.log(`🔍  Basescan:   https://basescan.org/tx/${tx.hash}\n`);
 
-  console.log(`⏳  Transaction: ${tx.tx.hash}`);
-  const schemaUID = await tx.wait();
+  const receipt = await tx.wait();
 
-  console.log(`\n✅  Schema registered!`);
+  // Extract schema UID from the Registered event
+  // The event emits: Registered(bytes32 indexed uid, address indexed registerer, ...)
+  // uid is the first indexed topic (topics[1])
+  const registeredLog = receipt.logs.find(
+    (log: ethers.Log) => log.topics[0] === '0x7d917fcbc9a29a9705ff9936ffa599500e4fd902e4486bae317414fe967b307c'
+  );
+  const schemaUID: string = registeredLog?.topics?.[1] ?? 'unknown';
+
+  console.log(`✅  Schema registered!`);
   console.log(`    Schema UID: ${schemaUID}`);
   console.log(`\n👉  Add to your .env:`);
   console.log(`    AEGIS_EAS_SCHEMA_UID=${schemaUID}\n`);
 
-  // Write config for use by the attestation bridge
+  // Save config
   const config = {
     schemaUID,
     schema: AEGIS_SCHEMA,
     chainId: network.chainId.toString(),
-    registeredAt: new Date().toISOString(),
+    networkName: network.name,
     registryAddress: SCHEMA_REGISTRY_ADDRESS,
+    txHash: tx.hash,
+    registeredAt: new Date().toISOString(),
   };
 
-  const configPath = resolve(process.cwd(), '../../config/base.json');
-  await writeFile(configPath, JSON.stringify(config, null, 2));
-  console.log(`💾  Config saved to config/base.json`);
+  const configDir  = resolve(dirname(fileURLToPath(import.meta.url)), '../../config');
+  const configFile = resolve(configDir, `${network.name.replace(' ', '-')}.json`);
+
+  await mkdir(configDir, { recursive: true });
+  await writeFile(configFile, JSON.stringify(config, null, 2));
+  console.log(`💾  Config saved to config/${network.name.replace(' ', '-')}.json`);
 }
 
 main().catch((err) => {
