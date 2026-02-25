@@ -2,6 +2,7 @@
 // Implements the REST API defined in SPEC.md §5
 
 import Fastify from 'fastify';
+import cors from '@fastify/cors';
 import { AegisEngine, identityGraph, issueChallenge, verifyChallenge, getChallenge } from '@aegis-protocol/core';
 import type { Action, Subject } from '@aegis-protocol/core';
 import { readFileSync } from 'node:fs';
@@ -28,6 +29,19 @@ const engine = new AegisEngine();
 
 // ── Server ────────────────────────────────────────────────────────────────────
 const server = Fastify({ logger: process.env['NODE_ENV'] !== 'test' });
+
+// ── CORS ──────────────────────────────────────────────────────────────────────
+await server.register(cors, {
+  origin: [
+    'https://trstlyr.ai',
+    'https://www.trstlyr.ai',
+    /\.trstlyr\.ai$/,
+    /^http:\/\/localhost(:\d+)?$/,
+  ],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Payment'],
+  exposedHeaders: ['X-Payment-Required'],
+});
 
 // ── Request body types ────────────────────────────────────────────────────────
 interface TrustQueryBody {
@@ -161,7 +175,7 @@ server.post('/v1/identity/verify', async (request, reply) => {
 });
 
 // ── x402 attestation routes ───────────────────────────────────────────────────
-const BASE_URL = process.env['BASE_URL'] ?? 'https://trstlyr.ai';
+const BASE_URL = process.env['BASE_URL'] ?? 'https://api.trstlyr.ai';
 await registerAttestRoutes(server, engine, BASE_URL);
 
 // POST /v1/audit/submit — SPEC §5.5 (Phase 2)
