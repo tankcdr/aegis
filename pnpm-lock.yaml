@@ -54,6 +54,9 @@ importers:
 
   packages/core:
     dependencies:
+      ethers:
+        specifier: ^6.11.0
+        version: 6.16.0
       zod:
         specifier: ^3.22.0
         version: 3.25.76

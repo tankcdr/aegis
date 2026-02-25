@@ -15,8 +15,15 @@ import type {
   Signal,
   TrustResult,
 } from '../types/index.js';
-import { GitHubProvider } from '../providers/index.js';
+import {
+  GitHubProvider,
+  TwitterProvider,
+  ERC8004Provider,
+  MoltbookProvider,
+} from '../providers/index.js';
 import { TrustCache } from './cache.js';
+import { createEASWriter } from '../attestation/eas.js';
+import type { EASWriter } from '../attestation/eas.js';
 import {
   applyContextMultiplier,
   evTrustAdjust,
@@ -31,16 +38,25 @@ export class AegisEngine {
   private readonly providers: Provider[];
   private readonly cache: TrustCache;
   private readonly providerTimeout: number;
+  private readonly easWriter: EASWriter | null;
+  private readonly attestationEnabled: boolean;
 
   constructor(config: AegisConfig = {}) {
-    // Default providers: GitHubProvider (Phase 1)
+    // Build default provider set based on available env vars
+    // Explicit config.providers always wins; otherwise auto-detect from env
     this.providers =
       config.providers && config.providers.length > 0
         ? config.providers
-        : [new GitHubProvider()];
+        : buildDefaultProviders();
 
     this.cache = new TrustCache(300);
     this.providerTimeout = config.scoring?.providerTimeout ?? 10_000;
+
+    // EAS attestation writer — optional, requires AEGIS_ATTESTATION_PRIVATE_KEY
+    this.attestationEnabled = config.attestation?.enabled ?? false;
+    this.easWriter = this.attestationEnabled
+      ? createEASWriter()
+      : null;
   }
 
   async query(request: EvaluateRequest): Promise<TrustResult> {
@@ -160,7 +176,7 @@ export class AegisEngine {
         ? Math.min(...allSignals.map((s) => s.ttl ?? 300))
         : 300;
 
-    const result: TrustResult = {
+    let result: TrustResult = {
       subject: subjectKey,
       trust_score: Math.round(adjustedScore * 10_000) / 10_000,
       confidence: Math.round((1 - fusedOpinion.uncertainty) * 10_000) / 10_000,
@@ -172,6 +188,23 @@ export class AegisEngine {
       evaluated_at: new Date().toISOString(),
       metadata: { query_id: crypto.randomUUID() },
     };
+
+    // ── Step 7b: Optional EAS attestation anchoring ───────────────────────────
+    if (this.easWriter && this.attestationEnabled) {
+      try {
+        const attestation = await this.easWriter.attest(result);
+        result = {
+          ...result,
+          metadata: {
+            ...result.metadata!,
+            attestation_uid: attestation.uid,
+          },
+        };
+      } catch (err) {
+        // Attestation failure is non-fatal — log and continue
+        console.warn('[aegis] EAS attestation failed:', err instanceof Error ? err.message : err);
+      }
+    }
 
     // Store in cache
     this.cache.set(subjectKey, result, ttl);
@@ -208,4 +241,29 @@ export class AegisEngine {
   providerNames(): string[] {
     return this.providers.map((p) => p.metadata().name);
   }
+}
+
+// ─── Default provider factory ─────────────────────────────────────────────────
+
+/**
+ * Build the default provider set based on available environment variables.
+ * GitHubProvider is always included (unauthenticated = 60 req/hr; token = 5k/hr).
+ * TwitterProvider, MoltbookProvider, ERC8004Provider are optional — enabled when
+ * their respective tokens are present in the environment.
+ */
+function buildDefaultProviders(): Provider[] {
+  const providers: Provider[] = [
+    new GitHubProvider(),   // always on
+    new ERC8004Provider(),  // always on — reads Base Mainnet via public RPC
+  ];
+
+  if (process.env['TWITTER_BEARER_TOKEN']) {
+    providers.push(new TwitterProvider());
+  }
+
+  if (process.env['MOLTBOOK_API_KEY']) {
+    providers.push(new MoltbookProvider());
+  }
+
+  return providers;
 }

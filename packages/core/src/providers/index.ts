@@ -1,14 +1,15 @@
 // Built-in signal providers — SPEC §6 (Signal Provider Interface)
-// Each provider implements the canonical Provider interface.
 
-// Phase 1 providers (Synthesis hackathon MVP):
-export { GitHubProvider } from './github.js';
+// ── Phase 1: Web2 signals ─────────────────────────────────────────────────────
+export { GitHubProvider }   from './github.js';
+export { TwitterProvider }  from './twitter.js';
 
-// Phase 2 providers (planned):
-// export { MoltbookProvider } from './moltbook.js';
-// export { ClawHubProvider } from './clawhub.js';
+// ── Phase 2: Web3 signals ─────────────────────────────────────────────────────
+export { ERC8004Provider }  from './erc8004.js';
 
-// Phase 3 providers (planned):
-// export { ERC8004Provider } from './erc8004.js';
-// export { SATIProvider } from './sati.js';
-// export { EASProvider } from './eas.js';
+// ── Phase 2: Agent community signals ─────────────────────────────────────────
+export { MoltbookProvider } from './moltbook.js';
+
+// ── Phase 3 (planned) ─────────────────────────────────────────────────────────
+// export { SATIProvider }  from './sati.js';
+// export { EASProvider }   from './eas.js';    // read EAS attestation history
