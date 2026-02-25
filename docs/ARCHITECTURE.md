@@ -107,11 +107,22 @@ The core of Aegis. Four sub-components:
 
 **Scoring Engine**
 - Receives collected signals
-- Applies weight assignment based on signal category and query context
+- Applies weight assignment based on signal category and query context (COBRA context-aware modifiers)
+- Fuses opinions using Subjective Logic cumulative belief fusion
 - Computes composite trust score and confidence
 - Applies confidence decay for stale signals
-- Maps composite score to risk level and recommendation
+- Applies evolutionary stability adjustment for volatility penalty (SPEC §7.9)
+- Maps composite score to risk level and recommendation (with context multiplier)
 - See [SPEC.md Section 7](SPEC.md#7-trust-scoring-model) for formulas
+
+**Fraud Detection Engine**
+- Runs as a meta-layer across all collected signals before scoring
+- Velocity anomaly detection — sudden score changes trigger confidence reduction
+- Cross-provider consistency checks — flags signals that contradict each other beyond threshold
+- Coordinated behavior detection — Louvain community analysis on vouch + audit graph (quarterly)
+- Behavioral fingerprinting — TF-IDF cosine similarity + IP prefix overlap (per-query, lazy)
+- Honeypot monitoring — permanent trust_score = 0.0 with depth-2 EigenTrust contagion on trigger
+- See [SPEC.md Section 12](SPEC.md#12-fraud-detection-engine) for detector specifications
 
 **Cache Layer**
 - Caches complete trust evaluations keyed by subject + context hash
@@ -132,9 +143,11 @@ Maintains the set of available providers (built-in and remote):
 Optional component for web3 integration:
 
 - Serializes trust evaluations for on-chain storage
-- Submits attestations to smart contracts (Base L2 for low cost)
-- Reads from ERC-8004 registries (Identity, Reputation, Validation)
+- Submits EAS attestations on Base L2 (~$0.01/attestation) using the `AegisTrustEvaluation` schema — `subject` field uses the full Aegis subject identifier string (e.g. `erc8004://eip155:8453:0x.../42`) for cross-namespace support; signal evidence is pinned to IPFS and referenced by CID
+- Reads from ERC-8004 registries (Identity, Reputation, Validation) as signal inputs
+- Optionally writes trust evaluations back to the ERC-8004 Reputation Registry, referencing the EAS attestation as evidence URI
 - Verifies x402 payment headers for premium queries
+- See [SPEC.md §9.1](SPEC.md#91-ethereum-attestation-service-eas) for the full EAS schema and on-chain flow
 
 ## Data Flow: Trust Query
 
