@@ -1,6 +1,6 @@
 # Aegis Protocol Specification
 
-**Version:** 0.3.0-draft  
+**Version:** 0.4.0-draft  
 **Authors:** Chris Madison (Long Run Advisory)  
 **Created:** 2026-02-23  
 **Updated:** 2026-02-25  
