@@ -18,6 +18,7 @@ export { GitHubProvider }   from './providers/index.js';
 export { TwitterProvider }  from './providers/index.js';
 export { ERC8004Provider }  from './providers/index.js';
 export { MoltbookProvider } from './providers/index.js';
+export { ClawHubProvider }  from './providers/index.js';
 
 // ── Attestation ──────────────────────────────────────────────────────────────
 export { EASWriter, createEASWriter } from './attestation/eas.js';

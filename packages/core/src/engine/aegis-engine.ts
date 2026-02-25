@@ -20,6 +20,7 @@ import {
   TwitterProvider,
   ERC8004Provider,
   MoltbookProvider,
+  ClawHubProvider,
 } from '../providers/index.js';
 import { TrustCache } from './cache.js';
 import { createEASWriter } from '../attestation/eas.js';
@@ -253,8 +254,9 @@ export class AegisEngine {
  */
 function buildDefaultProviders(): Provider[] {
   const providers: Provider[] = [
-    new GitHubProvider(),   // always on
-    new ERC8004Provider(),  // always on — reads Base Mainnet via public RPC
+    new GitHubProvider(),   // always on — web2 author reputation + repo health
+    new ERC8004Provider(),  // always on — web3 on-chain identity (Base Mainnet)
+    new ClawHubProvider(),  // always on — skill marketplace adoption metrics
   ];
 
   if (process.env['TWITTER_BEARER_TOKEN']) {

@@ -9,6 +9,7 @@ export { ERC8004Provider }  from './erc8004.js';
 
 // ── Phase 2: Agent community signals ─────────────────────────────────────────
 export { MoltbookProvider } from './moltbook.js';
+export { ClawHubProvider }  from './clawhub.js';
 
 // ── Phase 3 (planned) ─────────────────────────────────────────────────────────
 // export { SATIProvider }  from './sati.js';
