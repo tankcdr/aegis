@@ -1156,6 +1156,37 @@ These thresholds shift based on context risk level. In a `critical` context, a s
 
 A trust evaluation MUST have at least 2 signals from distinct providers to produce a `recommendation` other than `review`. Single-signal evaluations always return `recommendation: "review"` regardless of score.
 
+### 7.9 Evolutionary Stability Adjustment
+
+When a subject has ≥5 interactions recorded in the last 30 days, the Scoring Engine applies an evolutionary stability penalty to discourage strategy oscillation — the pattern where bad actors rapidly accumulate reputation through farming and then exploit it.
+
+```
+effective_score = fused_score × (1 - λ × volatility)
+
+where:
+  volatility = stddev(recent_scores) / mean(recent_scores)
+  λ = 0.15  (Coefficient of Variation of recent signal scores)
+```
+
+**Parameters:**
+- `volatility` — Coefficient of Variation (CV) of the subject's signal scores over the last 30 days. A stable, consistently-trusted agent has low volatility. An agent gaming their score has high volatility.
+- `λ = 0.15` — Tunable penalty weight. Wang et al. (arXiv:2512.16167) demonstrate that λ ∈ [0.1, 0.2] produces a stable honest equilibrium under rational adversaries; values outside this range either fail to deter gaming (λ < 0.1) or over-penalize legitimate reputation variance (λ > 0.2). λ is governance-adjustable (see Section 15, Phase 4).
+
+**Behavior:**
+- Agents with consistent, stable trust histories are unaffected (low volatility → penalty ≈ 0)
+- Agents with sudden reputation spikes followed by drops are penalized (high volatility → meaningful score reduction)
+- The adjustment is not applied when `n_interactions < 5` in the last 30 days — insufficient data makes CV unreliable and would unfairly penalize new agents
+
+**Example:**
+
+| Scenario | fused_score | volatility | effective_score |
+|----------|-------------|------------|----------------|
+| Stable agent, consistent signals | 0.82 | 0.04 | 0.82 × (1 − 0.15 × 0.04) ≈ **0.815** |
+| Reputation farming attempt | 0.78 | 0.48 | 0.78 × (1 − 0.15 × 0.48) ≈ **0.724** |
+| Pump-and-dump attack | 0.71 | 1.20 | 0.71 × (1 − 0.15 × 1.20) ≈ **0.582** |
+
+This makes pump-and-dump reputation attacks evolutionarily unstable, exactly as proven in Wang et al. (arXiv:2512.16167): honest, stable behavior is the dominant long-run strategy because volatility-inducing tactics reduce effective scores below the threshold at which exploiting accumulated reputation becomes profitable.
+
 ---
 
 ## 8. Identity Resolution
