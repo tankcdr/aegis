@@ -54,3 +54,5 @@ coverage/
 # ─── Future infra ─────────────────────────────────────────────────────────────
 .sst/
 .fly/
+apps/web/.next/
+apps/web/node_modules/
