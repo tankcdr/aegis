@@ -1,6 +1,6 @@
 # Aegis Protocol Specification
 
-**Version:** 0.2.0-draft  
+**Version:** 0.3.0-draft  
 **Authors:** Chris Madison (Long Run Advisory)  
 **Created:** 2026-02-23  
 **Updated:** 2026-02-25  
@@ -1208,19 +1208,31 @@ Identity links are public by default — linking is an explicit act of associati
 ```json
 {
   "name": "AegisTrustEvaluation",
-  "schema": "address subject, uint256 trustScore, uint256 confidence, uint8 riskLevel, string signalSummary, string queryId",
+  "schema": "string subject, uint256 trustScore, uint256 confidence, uint8 riskLevel, string signalSummary, string queryId",
   "resolver": "0x0000000000000000000000000000000000000000",
   "revocable": true
 }
 ```
 
 Fields:
-- `subject` — Address of the evaluated agent (ERC-8004 registered wallet, or derived from identity)
+- `subject` — Full Aegis subject identifier string (e.g. `erc8004://eip155:8453:0x742d.../42`, `moltbook://nyx_clawd`, `clawhub://author/skill`). See Appendix A for the full namespace registry.
 - `trustScore` — Projected trust score as uint256, scaled by 1e18 (i.e., 0.87 → 870000000000000000)
 - `confidence` — Composite confidence, same scaling
 - `riskLevel` — 0=minimal, 1=low, 2=medium, 3=high, 4=critical
 - `signalSummary` — IPFS CID of the full signal JSON (preserves evidence without bloating chain storage)
 - `queryId` — Off-chain query ID for correlation
+
+**Subject field design rationale:**
+
+An earlier draft used `address subject` (the agent's controlling wallet). This is insufficient for a chain-agnostic protocol:
+
+- The canonical ERC-8004 identity is a `(registryAddress, agentId)` tuple plus `agentURI` — not the owner wallet. Wallets can be transferred; the token identity persists.
+- Agents can be owned by smart contracts, multi-sigs, or DAOs — no single EOA address is canonical.
+- Cross-chain agents (SATI on Solana) and web2 agents (Moltbook, GitHub) have no EVM wallet at all.
+
+Using the full Aegis subject identifier string makes every EAS attestation directly consumable by any Aegis instance without additional mapping logic. EAS supports `string` fields natively; gas cost increase on Base is negligible (~$0.01–0.02 per attestation).
+
+**Gas optimization alternative:** For deployments where attestation volume warrants it, `bytes32 subjectHash = keccak256(abi.encodePacked(subject))` is a drop-in replacement. The original `subject` string is preserved off-chain in the `signalSummary` IPFS document, maintaining full verifiability at lower on-chain storage cost.
 
 **On-chain flow:**
 1. Trust query executes off-chain (as normal)
