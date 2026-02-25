@@ -64,6 +64,14 @@ interface Signal {
 }
 
 type EvaluateResponse = Signal[];
+
+// Canonical provider interface — all four methods are required (SPEC §6.1)
+interface Provider {
+  metadata(): ProviderMetadata;
+  evaluate(request: EvaluateRequest): Promise<Signal[]>;
+  health(): Promise<HealthStatus>;    // SPEC §6.1
+  supported(subject: Subject): boolean; // SPEC §6.1
+}
 ```
 
 ### health()
