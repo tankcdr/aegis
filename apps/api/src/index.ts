@@ -111,43 +111,51 @@ server.get<{ Params: { namespace: string; id: string } }>(
   },
 );
 
-// POST /v1/identity/link — issue a challenge to verify a cross-namespace link
-server.post('/v1/identity/link', async (request, reply) => {
+// POST /v1/identity/register — register an identity and get a verification challenge
+// Method is auto-selected by namespace (twitter→tweet, github→gist, erc8004→wallet_signature)
+// Optional link_to: link to an already-verified identity on success
+server.post('/v1/identity/register', async (request, reply) => {
   const body = request.body as {
-    from?: { namespace: string; id: string };
-    to?:   { namespace: string; id: string };
-    method?: 'tweet' | 'wallet_signature';
+    subject?:  { namespace: string; id: string };
+    link_to?:  { namespace: string; id: string };
   } | undefined;
 
-  if (!body?.from?.namespace || !body?.from?.id) {
-    return reply.code(400).send({ error: '"from" identifier required: { namespace, id }' });
-  }
-  if (!body?.to?.namespace || !body?.to?.id) {
-    return reply.code(400).send({ error: '"to" identifier required: { namespace, id }' });
-  }
-
-  const method = body.method ?? 'tweet';
-  if (method !== 'tweet' && method !== 'wallet_signature') {
-    return reply.code(400).send({ error: 'method must be "tweet" or "wallet_signature"' });
+  if (!body?.subject?.namespace || !body?.subject?.id) {
+    return reply.code(400).send({
+      error: '"subject" required: { namespace, id }',
+      example: {
+        subject: { namespace: 'twitter', id: 'myagent' },
+        link_to: { namespace: 'github',  id: 'myagent' }, // optional
+      },
+    });
   }
 
-  const challenge = issueChallenge(body.from, body.to, method);
+  const challenge = issueChallenge(body.subject, body.link_to);
   return reply.code(201).send({
-    challenge_id:      challenge.id,
-    challenge_string:  challenge.challengeString,
-    method:            challenge.method,
-    instructions:      challenge.instructions,
-    expires_at:        challenge.expiresAt,
+    challenge_id:     challenge.id,
+    challenge_string: challenge.challengeString,
+    method:           challenge.method,
+    instructions:     challenge.instructions,
+    expires_at:       challenge.expiresAt,
+  });
+});
+
+// POST /v1/identity/link — deprecated alias for /v1/identity/register
+server.post('/v1/identity/link', async (request, reply) => {
+  return reply.code(301).send({
+    error:    'Deprecated — use POST /v1/identity/register',
+    redirect: '/v1/identity/register',
   });
 });
 
 // POST /v1/identity/verify — submit proof for a pending challenge
 server.post('/v1/identity/verify', async (request, reply) => {
   const body = request.body as {
-    challenge_id?: string;
-    signature?: string;
-    tweet_url?: string;       // preferred: URL of the verification tweet
-    twitter_username?: string; // legacy: scan by username via Bearer token
+    challenge_id?:    string;
+    tweet_url?:       string;  // twitter/moltbook: URL of verification tweet
+    gist_url?:        string;  // github: URL of public gist
+    signature?:       string;  // erc8004/wallet: hex signature
+    twitter_username?: string; // legacy bearer-token fallback
   } | undefined;
 
   if (!body?.challenge_id) {
@@ -160,8 +168,9 @@ server.post('/v1/identity/verify', async (request, reply) => {
   }
 
   const result = await verifyChallenge(body.challenge_id, {
-    signature:       body.signature,
     tweetUrl:        body.tweet_url,
+    gistUrl:         body.gist_url,
+    signature:       body.signature,
     twitterUsername: body.twitter_username,
   });
 
@@ -169,10 +178,17 @@ server.post('/v1/identity/verify', async (request, reply) => {
     return reply.code(422).send({ error: result.error });
   }
 
+  const msg = result.linked
+    ? `✅ ${result.registered} verified and linked to ${result.linked} (confidence: ${result.confidence})`
+    : `✅ ${result.registered} verified (confidence: ${result.confidence})`;
+
   return reply.send({
-    verified: true,
-    link: result.link,
-    message: `✅ ${result.link?.from} ↔ ${result.link?.to} verified (${result.link?.method}, confidence: ${result.link?.confidence})`,
+    verified:    true,
+    registered:  result.registered,
+    linked:      result.linked ?? null,
+    method:      result.method,
+    confidence:  result.confidence,
+    message:     msg,
   });
 });
 
