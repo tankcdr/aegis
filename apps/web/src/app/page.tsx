@@ -459,6 +459,84 @@ docker compose up -d`}
         </div>
       </section>
 
+      {/* ── Roadmap ───────────────────────────────────────────────────────── */}
+      <section className="max-w-6xl mx-auto px-6 py-12 border-t border-[#1e1e2e]">
+        <h2 className="text-sm font-mono text-slate-500 uppercase tracking-widest mb-8">Roadmap</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            {
+              phase: 'Phase 1',
+              label: 'Now',
+              status: 'live',
+              color: 'green',
+              items: [
+                'Trust scoring engine (Subjective Logic + Ev-Trust)',
+                'GitHub, ERC-8004, ClawHub providers',
+                'REST API + MCP server',
+                'EAS on-chain attestations',
+                'Identity registration & verification',
+                'x402 micropayments',
+              ],
+            },
+            {
+              phase: 'Phase 2',
+              label: 'Next',
+              status: 'building',
+              color: 'indigo',
+              items: [
+                'Dispute & flag system',
+                'Behavioral signals (did the agent deliver?)',
+                'EigenTrust score propagation',
+                'Twitter/Moltbook provider signals',
+                'Persistent identity graph',
+                'Agent-to-agent trust delegation',
+              ],
+            },
+            {
+              phase: 'Phase 3',
+              label: 'Future',
+              status: 'planned',
+              color: 'slate',
+              items: [
+                'Decentralized signal network',
+                'Cross-chain identity (ENS, DID)',
+                'Governance — community-weighted signals',
+                'zkProof verified credentials',
+                'Enterprise SLAs + private deployments',
+                'Agent insurance primitives',
+              ],
+            },
+          ].map(({ phase, label, status, color, items }) => (
+            <div key={phase} className="bg-[#12121a] border border-[#1e1e2e] rounded-xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <span className="font-mono font-bold text-white text-sm">{phase}</span>
+                <span className={`text-xs font-mono px-2 py-0.5 rounded-full border ${
+                  color === 'green'  ? 'text-green-400 border-green-500/30 bg-green-500/10' :
+                  color === 'indigo' ? 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10' :
+                                      'text-slate-500 border-slate-700 bg-slate-800/50'
+                }`}>
+                  {label}
+                </span>
+              </div>
+              <ul className="space-y-2">
+                {items.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-slate-400">
+                    <span className={`mt-0.5 shrink-0 ${
+                      color === 'green'  ? 'text-green-500' :
+                      color === 'indigo' ? 'text-indigo-500' :
+                                          'text-slate-600'
+                    }`}>
+                      {color === 'green' ? '✓' : '·'}
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ── Footer ────────────────────────────────────────────────────────── */}
       <footer className="border-t border-[#1e1e2e] mt-4">
         <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
