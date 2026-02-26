@@ -94,10 +94,18 @@ function ScoreRing({ score, color, loading }: { score: number; color: string; lo
   );
 }
 
+const RECOMMENDATION_LABELS: Record<string, string> = {
+  install:  '✅ Safe to install',
+  proceed:  '✅ Safe to proceed',
+  caution:  '⚠️ Use with caution',
+  deny:     '🚫 Do not proceed',
+  review:   '🔍 Manual review advised',
+};
+
 function RiskBadge({ level }: { level: string }) {
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono border ${RISK_STYLES[level] ?? RISK_STYLES['medium']}`}>
-      {level}
+      {level} risk
     </span>
   );
 }
@@ -110,7 +118,7 @@ function SignalBar({ signal }: { signal: Signal }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs font-mono text-slate-400 truncate">
-            {signal.provider}<span className="text-slate-600">/{signal.signal_type}</span>
+            {signal.provider}<span className="text-slate-600"> · {signal.signal_type.replace(/_/g, ' ')}</span>
           </span>
           <span className="text-xs font-mono ml-2 shrink-0" style={{ color }}>
             {pct}
@@ -207,7 +215,7 @@ export default function Home() {
             </h1>
             <p className="text-base text-slate-400 leading-relaxed mb-8 max-w-lg">
               Before you install a skill, execute code, or delegate to another agent —
-              ask Aegis first. Web2 + web3 signals fused with Subjective Logic into
+              check trstlyr.ai first. Web2 + web3 signals fused with Subjective Logic into
               one verifiable trust score.
             </p>
             <div className="flex flex-wrap gap-3">
@@ -299,12 +307,13 @@ export default function Home() {
                       <>
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
                           <RiskBadge level={riskLevel(result)} />
-                          <span className="text-xs font-mono text-slate-500">
-                            {Math.round(result.confidence * 100)}% confidence
-                          </span>
                         </div>
-                        <div className="text-sm font-semibold text-white mb-1" style={{ color }}>
-                          {result.recommendation.replace(/_/g, ' ')}
+                        <div className="text-sm font-semibold mb-1" style={{ color }}>
+                          {RECOMMENDATION_LABELS[result.recommendation] ?? result.recommendation.replace(/_/g, ' ')}
+                        </div>
+                        <div className="text-xs text-slate-500 mb-1">
+                          Score confidence: <span className="text-slate-300">{Math.round(result.confidence * 100)}%</span>
+                          <span className="text-slate-600 ml-1">(how much signal data we have)</span>
                         </div>
                         <div className="text-xs text-slate-600 font-mono">
                           {result.signals.length} signal{result.signals.length !== 1 ? 's' : ''} · {new Date(result.evaluated_at).toLocaleTimeString()}
