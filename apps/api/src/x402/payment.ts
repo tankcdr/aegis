@@ -2,6 +2,7 @@
 // Uses the Coinbase facilitator at https://x402.org/facilitator
 // Spec: https://github.com/coinbase/x402
 
+import { Wallet } from 'ethers';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import type {
   FacilitatorSettleResponse,
@@ -17,9 +18,21 @@ import { hasUsedFree, isNonceUsed, markFreeUsed, markNonceUsed } from './store.j
 // USDC on Base Mainnet
 const USDC_BASE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
-// Our attestation wallet — receives USDC payments
-const PAYMENT_RECEIVER =
-  process.env['PAYMENT_WALLET'] ?? '0xAaa00Fef6CD6a7B41e30c25b8655D599f462Cc43';
+// Derive payment receiver from the attestation private key — same wallet does both.
+// If no key is set (e.g. local dev without .env), fall back to the known deployment address.
+function resolvePaymentReceiver(): string {
+  const key = process.env['AEGIS_ATTESTATION_PRIVATE_KEY'];
+  if (key) {
+    try {
+      return new Wallet(key).address;
+    } catch {
+      console.warn('[x402] Invalid AEGIS_ATTESTATION_PRIVATE_KEY — falling back to default address');
+    }
+  }
+  return '0xAaa00Fef6CD6a7B41e30c25b8655D599f462Cc43';
+}
+
+const PAYMENT_RECEIVER = resolvePaymentReceiver();
 
 // $0.01 USDC (6 decimals)
 const AMOUNT_USDC = '10000';

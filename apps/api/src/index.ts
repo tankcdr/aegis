@@ -219,7 +219,8 @@ server.get('/health', async () => {
     eas_schema_uid: easSchemaUid ?? null,
     x402: {
       attestation_price_usdc: '0.01',
-      payment_receiver: process.env['PAYMENT_WALLET'] ?? '0xAaa00Fef6CD6a7B41e30c25b8655D599f462Cc43',
+      // Address is derived from AEGIS_ATTESTATION_PRIVATE_KEY at startup — same wallet for both
+      attestation_enabled: process.env['ATTESTATION_ENABLED'] === 'true',
       network: 'Base Mainnet',
       ...storeStats(),
     },

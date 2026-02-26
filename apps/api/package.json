@@ -13,10 +13,11 @@
   },
   "dependencies": {
     "@aegis-protocol/core": "workspace:*",
-    "fastify": "^4.26.0",
-    "@fastify/rate-limit": "^9.0.0",
     "@fastify/cors": "^9.0.0",
+    "@fastify/rate-limit": "^9.0.0",
     "dotenv": "^16.4.0",
+    "ethers": "^6.11.0",
+    "fastify": "^4.26.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
