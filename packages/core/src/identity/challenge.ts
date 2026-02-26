@@ -42,16 +42,25 @@ export interface VerifyResult {
   error?:      string;
 }
 
+// Proof payload for a single identity
+export interface ProofPayload {
+  tweetUrl?:  string;   // twitter/moltbook: URL of verification tweet
+  gistUrl?:   string;   // github: URL of public gist
+  signature?: string;   // erc8004/wallet: hex signature
+}
+
 export interface VerifyProof {
-  // Tweet verification (twitter namespace)
-  tweetUrl?:       string;   // URL of the verification tweet — no API key required
-  twitterUsername?: string;  // legacy: scan by username via Bearer token
+  // Proof for the subject identity
+  tweetUrl?:        string;
+  gistUrl?:         string;
+  signature?:       string;
+  twitterUsername?: string; // legacy bearer-token fallback
 
-  // Gist verification (github namespace)
-  gistUrl?:        string;   // URL of the public gist containing challenge string
-
-  // Wallet signature (erc8004 namespace)
-  signature?:      string;   // hex signature of challengeString
+  // Proof for link_to identity (REQUIRED when link_to was set on the challenge)
+  // The SAME challenge string must appear in the link_to's medium too.
+  linkToTweetUrl?:  string;
+  linkToGistUrl?:   string;
+  linkToSignature?: string;
 }
 
 // ─── Challenge store ──────────────────────────────────────────────────────────
@@ -138,24 +147,69 @@ export async function verifyChallenge(
   }
 
   try {
-    let verified = false;
+    // ── Step 1: verify the subject identity ──────────────────────────────────
+    let subjectVerified = false;
 
     switch (challenge.method) {
       case 'tweet':
-        verified = await verifyTweet(challenge, proof.tweetUrl, proof.twitterUsername);
+        subjectVerified = await verifyTweet(challenge, proof.tweetUrl, proof.twitterUsername);
         break;
       case 'gist':
-        verified = await verifyGist(challenge, proof.gistUrl);
+        subjectVerified = await verifyGist(challenge, proof.gistUrl);
         break;
       case 'wallet_signature':
-        verified = await verifyWalletSignature(challenge, proof.signature);
+        subjectVerified = await verifyWalletSignature(challenge, proof.signature);
         break;
     }
 
-    if (!verified) {
-      return { success: false, error: 'Proof not found — challenge string not detected at the provided URL or signature invalid' };
+    if (!subjectVerified) {
+      return { success: false, error: 'Subject proof not found — challenge string not detected at the provided URL or signature invalid' };
     }
 
+    // ── Step 2: if link_to, verify that identity too ─────────────────────────
+    // The SAME challenge string must appear in the link_to's medium.
+    // This proves the same agent controls both identities simultaneously.
+    if (challenge.linkTo) {
+      const linkToMethod = methodForNamespace(challenge.linkTo.namespace);
+      const linkToKey    = `${challenge.linkTo.namespace}:${challenge.linkTo.id}`;
+
+      // Require link_to proof fields
+      const hasLinkToProof = proof.linkToTweetUrl || proof.linkToGistUrl || proof.linkToSignature;
+      if (!hasLinkToProof) {
+        return {
+          success: false,
+          error:   `link_to proof required — you must also prove control of "${linkToKey}". ` +
+                   `Post the same challenge string (${challenge.challengeString}) via ${linkToMethod} ` +
+                   `and provide link_to_tweet_url, link_to_gist_url, or link_to_signature.`,
+        };
+      }
+
+      // Verify link_to using a synthetic challenge scoped to that subject
+      const linkToChallenge = { ...challenge, subject: challenge.linkTo, method: linkToMethod };
+      let linkToVerified = false;
+
+      switch (linkToMethod) {
+        case 'tweet':
+          linkToVerified = await verifyTweet(linkToChallenge as Challenge, proof.linkToTweetUrl);
+          break;
+        case 'gist':
+          linkToVerified = await verifyGist(linkToChallenge as Challenge, proof.linkToGistUrl);
+          break;
+        case 'wallet_signature':
+          linkToVerified = await verifyWalletSignature(linkToChallenge as Challenge, proof.linkToSignature);
+          break;
+      }
+
+      if (!linkToVerified) {
+        return {
+          success: false,
+          error:   `link_to proof failed — challenge string not found in "${linkToKey}" via ${linkToMethod}. ` +
+                   `The same string must appear in both identities' proofs.`,
+        };
+      }
+    }
+
+    // ── Both proofs passed — commit to graph ──────────────────────────────────
     challenge.status = 'verified';
 
     const evidenceBase = {
@@ -165,40 +219,24 @@ export async function verifyChallenge(
       proof:        sanitizeProof(proof),
     };
 
-    // Determine graph method
     const graphMethod: VerificationMethod =
-      challenge.method === 'wallet_signature' ? 'wallet_signature' :
-      challenge.method === 'gist'             ? 'tweet_challenge'  : // reuse — same trust level
-                                                'tweet_challenge';
+      challenge.method === 'wallet_signature' ? 'wallet_signature' : 'tweet_challenge';
 
-    // Register the subject as verified (self-link is how we mark "in graph")
+    // Register the subject as verified
     identityGraph.addLink(challenge.subject, challenge.subject, graphMethod, evidenceBase);
 
-    // If link_to was requested, link to it now
-    let linked: string | undefined;
     if (challenge.linkTo) {
-      const linkToKey = `${challenge.linkTo.namespace}:${challenge.linkTo.id}`;
-      const alreadyVerified = identityGraph.getLinked(challenge.linkTo).length > 0;
-
-      if (!alreadyVerified) {
-        return {
-          success: false,
-          error:   `link_to "${linkToKey}" is not yet verified — register that identity first, then re-register this one with link_to`,
-        };
-      }
-
       const link = identityGraph.addLink(
         challenge.subject,
         challenge.linkTo,
         graphMethod,
         evidenceBase,
       );
-
-      linked = linkToKey;
+      const linkToKey = `${challenge.linkTo.namespace}:${challenge.linkTo.id}`;
       return {
         success:    true,
         registered: `${challenge.subject.namespace}:${challenge.subject.id}`,
-        linked,
+        linked:     linkToKey,
         confidence: link.confidence,
         method:     graphMethod,
       };
@@ -367,16 +405,41 @@ async function getERC8004Owner(agentId: string): Promise<string> {
 // ─── Instructions ─────────────────────────────────────────────────────────────
 
 function buildInstructions(
-  subject:  SubjectRef,
-  method:   ChallengeMethod,
+  subject:         SubjectRef,
+  method:          ChallengeMethod,
   challengeString: string,
   challengeId:     string,
-  linkTo?:  SubjectRef,
+  linkTo?:         SubjectRef,
 ): string {
-  const linkNote = linkTo
-    ? `\nThis identity will be linked to ${linkTo.namespace}:${linkTo.id} on success.\n`
-    : '';
+  const subjectProof  = proofInstructions(subject, method, challengeString, 'subject');
+  const verifyPayload = buildVerifyPayload(challengeId, subject, method, linkTo);
 
+  const lines = [
+    `Registering ${subject.namespace}:${subject.id} on TrstLyr Protocol.`,
+    ``,
+    `Challenge string (publish this in BOTH steps if linking):`,
+    `  ${challengeString}`,
+    ``,
+    `── Step 1: Prove you control ${subject.namespace}:${subject.id} ──`,
+    subjectProof,
+  ];
+
+  if (linkTo) {
+    const linkToMethod = methodForNamespace(linkTo.namespace);
+    const linkToProof  = proofInstructions(linkTo, linkToMethod, challengeString, 'link_to');
+    lines.push(
+      ``,
+      `── Step 2: Prove you also control ${linkTo.namespace}:${linkTo.id} ──`,
+      `(Same challenge string — proves both identities belong to you.)`,
+      linkToProof,
+    );
+  }
+
+  lines.push(``, `── Submit ──`, verifyPayload, ``, `Challenge expires in 24 hours.`);
+  return lines.join('\n');
+}
+
+function proofInstructions(subject: SubjectRef, method: ChallengeMethod, challengeString: string, _role: string): string {
   if (method === 'tweet') {
     const tweetText = [
       `Verifying my AI agent identity on TrstLyr Protocol.`,
@@ -385,58 +448,64 @@ function buildInstructions(
       ``,
       `https://trstlyr.ai`,
     ].join('\n');
-
     return [
-      `Registering ${subject.namespace}:${subject.id} on TrstLyr Protocol.`,
-      linkNote,
-      `1. Post the following tweet from @${subject.id}:`,
-      ``,
+      `Post this tweet from @${subject.id}:`,
       `---`,
       tweetText,
       `---`,
-      ``,
-      `2. Submit the tweet URL:`,
-      `   POST /v1/identity/verify`,
-      `   { "challenge_id": "${challengeId}", "tweet_url": "https://x.com/${subject.id}/status/<id>" }`,
-      ``,
-      `No API key required. Challenge expires in 24 hours.`,
     ].join('\n');
   }
 
   if (method === 'gist') {
     return [
-      `Registering ${subject.namespace}:${subject.id} on TrstLyr Protocol.`,
-      linkNote,
-      `1. Create a public GitHub gist at https://gist.github.com`,
-      `   Paste the following as the gist content:`,
-      ``,
+      `Create a public gist at https://gist.github.com with this content:`,
       `---`,
       challengeString,
       `---`,
-      ``,
-      `2. Submit the gist URL:`,
-      `   POST /v1/identity/verify`,
-      `   { "challenge_id": "${challengeId}", "gist_url": "https://gist.github.com/${subject.id}/<gist_id>" }`,
-      ``,
-      `No API key required. Challenge expires in 24 hours.`,
     ].join('\n');
   }
 
   // wallet_signature
   return [
-    `Registering ${subject.namespace}:${subject.id} on TrstLyr Protocol.`,
-    linkNote,
-    `1. Sign the following message with the wallet that owns this token:`,
-    `   "${challengeString}"`,
-    ``,
-    `   ethers.js: const sig = await wallet.signMessage("${challengeString}");`,
-    `   cast:      cast wallet sign "${challengeString}" --interactive`,
-    ``,
-    `2. Submit the signature:`,
-    `   POST /v1/identity/verify`,
-    `   { "challenge_id": "${challengeId}", "signature": "<0x...>" }`,
-    ``,
-    `Challenge expires in 24 hours.`,
+    `Sign this message with the wallet that owns ${subject.id}:`,
+    `  "${challengeString}"`,
+    `  ethers.js: await wallet.signMessage("${challengeString}")`,
+    `  cast:      cast wallet sign "${challengeString}" --interactive`,
+  ].join('\n');
+}
+
+function buildVerifyPayload(
+  challengeId: string,
+  subject:     SubjectRef,
+  method:      ChallengeMethod,
+  linkTo?:     SubjectRef,
+): string {
+  const subjectField = method === 'tweet'             ? `"tweet_url": "https://x.com/${subject.id}/status/<id>"` :
+                       method === 'gist'              ? `"gist_url": "https://gist.github.com/${subject.id}/<gist_id>"` :
+                                                       `"signature": "<0x...>"`;
+
+  if (!linkTo) {
+    return [
+      `POST /v1/identity/verify`,
+      `{`,
+      `  "challenge_id": "${challengeId}",`,
+      `  ${subjectField}`,
+      `}`,
+    ].join('\n');
+  }
+
+  const linkToMethod = methodForNamespace(linkTo.namespace);
+  const linkToField  = linkToMethod === 'tweet'          ? `"link_to_tweet_url": "https://x.com/${linkTo.id}/status/<id>"` :
+                       linkToMethod === 'gist'           ? `"link_to_gist_url": "https://gist.github.com/${linkTo.id}/<gist_id>"` :
+                                                          `"link_to_signature": "<0x...>"`;
+
+  return [
+    `POST /v1/identity/verify`,
+    `{`,
+    `  "challenge_id": "${challengeId}",`,
+    `  ${subjectField},`,
+    `  ${linkToField}`,
+    `}`,
   ].join('\n');
 }
 
@@ -444,9 +513,12 @@ function buildInstructions(
 
 function sanitizeProof(proof: VerifyProof): Record<string, unknown> {
   return {
-    tweet_url:         proof.tweetUrl ?? null,
-    gist_url:          proof.gistUrl ?? null,
-    twitter_username:  proof.twitterUsername ?? null,
-    signature_present: Boolean(proof.signature),
+    tweet_url:           proof.tweetUrl ?? null,
+    gist_url:            proof.gistUrl ?? null,
+    twitter_username:    proof.twitterUsername ?? null,
+    signature_present:   Boolean(proof.signature),
+    link_to_tweet_url:   proof.linkToTweetUrl ?? null,
+    link_to_gist_url:    proof.linkToGistUrl ?? null,
+    link_to_sig_present: Boolean(proof.linkToSignature),
   };
 }

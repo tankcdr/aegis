@@ -151,11 +151,16 @@ server.post('/v1/identity/link', async (request, reply) => {
 // POST /v1/identity/verify — submit proof for a pending challenge
 server.post('/v1/identity/verify', async (request, reply) => {
   const body = request.body as {
-    challenge_id?:    string;
-    tweet_url?:       string;  // twitter/moltbook: URL of verification tweet
-    gist_url?:        string;  // github: URL of public gist
-    signature?:       string;  // erc8004/wallet: hex signature
-    twitter_username?: string; // legacy bearer-token fallback
+    challenge_id?:      string;
+    // Subject proof
+    tweet_url?:         string;
+    gist_url?:          string;
+    signature?:         string;
+    twitter_username?:  string; // legacy
+    // link_to proof (required when challenge was issued with link_to)
+    link_to_tweet_url?: string;
+    link_to_gist_url?:  string;
+    link_to_signature?: string;
   } | undefined;
 
   if (!body?.challenge_id) {
@@ -172,6 +177,9 @@ server.post('/v1/identity/verify', async (request, reply) => {
     gistUrl:         body.gist_url,
     signature:       body.signature,
     twitterUsername: body.twitter_username,
+    linkToTweetUrl:  body.link_to_tweet_url,
+    linkToGistUrl:   body.link_to_gist_url,
+    linkToSignature: body.link_to_signature,
   });
 
   if (!result.success) {
