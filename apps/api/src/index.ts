@@ -146,7 +146,8 @@ server.post('/v1/identity/verify', async (request, reply) => {
   const body = request.body as {
     challenge_id?: string;
     signature?: string;
-    twitter_username?: string;
+    tweet_url?: string;       // preferred: URL of the verification tweet
+    twitter_username?: string; // legacy: scan by username via Bearer token
   } | undefined;
 
   if (!body?.challenge_id) {
@@ -160,6 +161,7 @@ server.post('/v1/identity/verify', async (request, reply) => {
 
   const result = await verifyChallenge(body.challenge_id, {
     signature:       body.signature,
+    tweetUrl:        body.tweet_url,
     twitterUsername: body.twitter_username,
   });
 

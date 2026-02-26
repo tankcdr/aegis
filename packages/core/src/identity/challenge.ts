@@ -39,6 +39,12 @@ export interface VerifyResult {
   error?: string;
 }
 
+export interface VerifyProof {
+  signature?: string;       // wallet_signature: hex signature
+  twitterUsername?: string; // tweet: which account to check (legacy Bearer-token flow)
+  tweetUrl?: string;        // tweet: direct URL to the post — no API key required
+}
+
 // ─── Challenge store ──────────────────────────────────────────────────────────
 
 const challenges = new Map<string, Challenge>();
@@ -87,10 +93,7 @@ export function issueChallenge(
  */
 export async function verifyChallenge(
   challengeId: string,
-  proof: {
-    signature?: string;      // wallet_signature: hex signature
-    twitterUsername?: string; // tweet: which account to check
-  },
+  proof: VerifyProof,
 ): Promise<VerifyResult> {
   const challenge = challenges.get(challengeId);
 
@@ -116,7 +119,7 @@ export async function verifyChallenge(
     if (challenge.method === 'wallet_signature') {
       verified = await verifyWalletSignature(challenge, proof.signature);
     } else if (challenge.method === 'tweet') {
-      verified = await verifyTweet(challenge, proof.twitterUsername);
+      verified = await verifyTweet(challenge, proof.tweetUrl, proof.twitterUsername);
     }
 
     if (!verified) {
@@ -192,63 +195,109 @@ async function verifyWalletSignature(
   return recovered !== ethers.ZeroAddress;
 }
 
+// ─── Tweet URL verification (no API key required) ────────────────────────────
+//
+// Primary method: agent provides the URL of the tweet they posted.
+// We use Twitter's public oEmbed endpoint to fetch the tweet text — no auth.
+// Falls back to raw HTML scrape if oEmbed fails.
+// Legacy Bearer-token flow (twitterUsername) still supported as fallback.
+
 async function verifyTweet(
   challenge: Challenge,
+  tweetUrl?: string,
   twitterUsername?: string,
 ): Promise<boolean> {
-  const bearerToken = process.env['TWITTER_BEARER_TOKEN'];
-  if (!bearerToken) {
-    throw new Error('TWITTER_BEARER_TOKEN required for tweet challenge verification');
+  // Preferred: agent gives us the tweet URL — no API key needed
+  if (tweetUrl) {
+    return verifyTweetByUrl(tweetUrl, challenge.challengeString);
   }
 
-  const username = twitterUsername ?? challenge.to.id.replace(/^@/, '');
+  // Legacy fallback: scan via Bearer token if no URL provided
+  const bearerToken = process.env['TWITTER_BEARER_TOKEN'];
+  if (bearerToken && twitterUsername) {
+    return verifyTweetByBearerToken(twitterUsername, challenge.challengeString, bearerToken);
+  }
 
-  // Check Twitter bio first (faster, doesn't require recent tweets)
-  const bioResult = await checkTwitterBio(username, challenge.challengeString, bearerToken);
-  if (bioResult) return true;
-
-  // Fall back to checking recent tweets
-  return checkRecentTweets(username, challenge.challengeString, bearerToken);
+  throw new Error(
+    'Provide tweet_url (the URL of your verification tweet) — no API key required.',
+  );
 }
 
-async function checkTwitterBio(
+/**
+ * Verify by fetching the tweet URL directly.
+ * Uses Twitter oEmbed (public, no auth) then falls back to HTML scrape.
+ */
+async function verifyTweetByUrl(tweetUrl: string, challengeString: string): Promise<boolean> {
+  // Normalise: accept x.com or twitter.com URLs
+  const normalised = tweetUrl.replace('x.com/', 'twitter.com/');
+
+  // 1. Try oEmbed — Twitter's public endpoint, no auth needed
+  try {
+    const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(normalised)}&omit_script=true`;
+    const res = await globalThis.fetch(oembedUrl, {
+      headers: { 'User-Agent': 'AegisProtocol/1.0 (+https://trstlyr.ai)' },
+    });
+    if (res.ok) {
+      const body = await res.json() as { html?: string; author_name?: string };
+      if (body.html && body.html.includes(challengeString)) return true;
+      // If oEmbed succeeded but string not found, don't bother with fallback
+      if (body.html) return false;
+    }
+  } catch {
+    // oEmbed failed — fall through to HTML scrape
+  }
+
+  // 2. Fallback: fetch the page HTML and look for the challenge string
+  try {
+    const res = await globalThis.fetch(normalised, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; AegisBot/1.0; +https://trstlyr.ai)',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      redirect: 'follow',
+    });
+    if (!res.ok) return false;
+    const html = await res.text();
+    return html.includes(challengeString);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Legacy: verify by scanning recent tweets via Bearer token.
+ * Only used when no tweet_url is provided.
+ */
+async function verifyTweetByBearerToken(
   username: string,
   challengeString: string,
   bearerToken: string,
 ): Promise<boolean> {
-  const res = await globalThis.fetch(
-    `https://api.twitter.com/2/users/by/username/${encodeURIComponent(username)}?user.fields=description`,
+  const clean = username.replace(/^@/, '');
+
+  // Check bio first
+  const bioRes = await globalThis.fetch(
+    `https://api.twitter.com/2/users/by/username/${encodeURIComponent(clean)}?user.fields=description`,
     { headers: { Authorization: `Bearer ${bearerToken}` } },
   );
-  if (!res.ok) return false;
-  const body = await res.json() as { data?: { description?: string } };
-  return (body.data?.description ?? '').includes(challengeString);
-}
+  if (bioRes.ok) {
+    const body = await bioRes.json() as { data?: { description?: string; id?: string } };
+    if ((body.data?.description ?? '').includes(challengeString)) return true;
 
-async function checkRecentTweets(
-  username: string,
-  challengeString: string,
-  bearerToken: string,
-): Promise<boolean> {
-  // First get the user ID
-  const userRes = await globalThis.fetch(
-    `https://api.twitter.com/2/users/by/username/${encodeURIComponent(username)}`,
-    { headers: { Authorization: `Bearer ${bearerToken}` } },
-  );
-  if (!userRes.ok) return false;
-  const userBody = await userRes.json() as { data?: { id?: string } };
-  const userId = userBody.data?.id;
-  if (!userId) return false;
-
-  // Check their last 10 tweets
-  const tweetsRes = await globalThis.fetch(
-    `https://api.twitter.com/2/users/${userId}/tweets?max_results=10`,
-    { headers: { Authorization: `Bearer ${bearerToken}` } },
-  );
-  if (!tweetsRes.ok) return false;
-  const tweetsBody = await tweetsRes.json() as { data?: Array<{ text: string }> };
-
-  return (tweetsBody.data ?? []).some(tweet => tweet.text.includes(challengeString));
+    // Scan recent tweets
+    const userId = body.data?.id;
+    if (userId) {
+      const tweetsRes = await globalThis.fetch(
+        `https://api.twitter.com/2/users/${userId}/tweets?max_results=10`,
+        { headers: { Authorization: `Bearer ${bearerToken}` } },
+      );
+      if (tweetsRes.ok) {
+        const t = await tweetsRes.json() as { data?: Array<{ text: string }> };
+        if ((t.data ?? []).some(tw => tw.text.includes(challengeString))) return true;
+      }
+    }
+  }
+  return false;
 }
 
 async function getERC8004Owner(agentId: string): Promise<string> {
@@ -288,12 +337,16 @@ function buildInstructions(
     return [
       `To link ${from.namespace}:${from.id} → ${to.namespace}:${to.id}:`,
       ``,
-      `1. Post the following string in your Twitter/X bio OR as a tweet:`,
+      `1. Post the following as a tweet (or in your Twitter/X bio):`,
       `   ${challengeString}`,
       ``,
-      `2. Call POST /v1/identity/verify with:`,
-      `   { "challenge_id": "${challengeId}", "twitter_username": "${to.id}" }`,
+      `2. Copy the URL of that tweet, then call POST /v1/identity/verify with:`,
+      `   {`,
+      `     "challenge_id": "${challengeId}",`,
+      `     "tweet_url": "https://x.com/${to.id}/status/<tweet_id>"`,
+      `   }`,
       ``,
+      `No API key required — we fetch the tweet URL directly.`,
       `Challenge expires in 24 hours.`,
     ].join('\n');
   }
@@ -314,8 +367,9 @@ function buildInstructions(
   ].join('\n');
 }
 
-function sanitizeProof(proof: { signature?: string; twitterUsername?: string }): Record<string, unknown> {
+function sanitizeProof(proof: VerifyProof): Record<string, unknown> {
   return {
+    tweet_url: proof.tweetUrl ?? null,
     twitter_username: proof.twitterUsername ?? null,
     signature_present: Boolean(proof.signature),
   };
