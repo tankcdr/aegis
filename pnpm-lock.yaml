@@ -8,6 +8,34 @@ importers:
 
   .: {}
 
+  apps/api:
+    dependencies:
+      '@aegis-protocol/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@fastify/cors':
+        specifier: ^9.0.0
+        version: 9.0.1
+      '@fastify/rate-limit':
+        specifier: ^9.0.0
+        version: 9.1.0
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
+      fastify:
+        specifier: ^4.26.0
+        version: 4.29.1
+      zod:
+        specifier: ^3.22.0
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.33
+      typescript:
+        specifier: ^5.4.0
+        version: 5.9.3
+
   apps/web:
     dependencies:
       next:
@@ -54,34 +82,6 @@ importers:
       tsx:
         specifier: ^4.7.0
         version: 4.21.0
-      typescript:
-        specifier: ^5.4.0
-        version: 5.9.3
-
-  packages/api:
-    dependencies:
-      '@aegis-protocol/core':
-        specifier: workspace:*
-        version: link:../core
-      '@fastify/cors':
-        specifier: ^9.0.0
-        version: 9.0.1
-      '@fastify/rate-limit':
-        specifier: ^9.0.0
-        version: 9.1.0
-      dotenv:
-        specifier: ^16.4.0
-        version: 16.6.1
-      fastify:
-        specifier: ^4.26.0
-        version: 4.29.1
-      zod:
-        specifier: ^3.22.0
-        version: 3.25.76
-    devDependencies:
-      '@types/node':
-        specifier: ^20.0.0
-        version: 20.19.33
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
