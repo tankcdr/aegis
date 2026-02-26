@@ -102,7 +102,7 @@ export function issueChallenge(subject: SubjectRef, linkTo?: SubjectRef): Challe
   const now = Date.now();
 
   const token           = id.slice(0, 8).toUpperCase();
-  const challengeString = `trstlyr-verify:${token}:${subject.namespace}:${subject.id}`;
+  const challengeString = `trstlyr-verify:${token}`;
   const method          = methodForNamespace(subject.namespace);
   const instructions    = buildInstructions(subject, method, challengeString, id, linkTo);
 
