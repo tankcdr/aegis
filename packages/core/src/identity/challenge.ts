@@ -65,18 +65,32 @@ export interface VerifyProof {
 
 // ─── Challenge store ──────────────────────────────────────────────────────────
 
-const challenges = new Map<string, Challenge>();
+const challenges    = new Map<string, Challenge>();
+const idempotencyIdx = new Map<string, string>(); // idempotency key → challenge id
 const CHALLENGE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/** Deterministic key for a registration request — same subject + link_to = same key */
+function idempotencyKey(subject: SubjectRef, linkTo?: SubjectRef): string {
+  const base = `${subject.namespace}:${subject.id}`;
+  return linkTo ? `${base}|${linkTo.namespace}:${linkTo.id}` : base;
+}
+
+/** Remove a challenge from both stores */
+function deleteChallenge(id: string, key?: string): void {
+  challenges.delete(id);
+  if (key) idempotencyIdx.delete(key);
+}
 
 // Purge expired challenges every 10 minutes
 setInterval(() => {
   const now = Date.now();
   for (const [id, challenge] of challenges) {
     if (now > new Date(challenge.expiresAt).getTime()) {
-      challenges.delete(id);
+      const key = idempotencyKey(challenge.subject, challenge.linkTo);
+      deleteChallenge(id, key);
     }
   }
-}, 10 * 60 * 1000).unref(); // .unref() so it doesn't block process exit
+}, 10 * 60 * 1000).unref();
 
 // ─── Namespace → method mapping ───────────────────────────────────────────────
 
@@ -108,6 +122,18 @@ function methodForNamespace(namespace: string): ChallengeMethod {
  * will be created on successful verification.
  */
 export function issueChallenge(subject: SubjectRef, linkTo?: SubjectRef): Challenge {
+  // Idempotency — return existing pending challenge for the same request
+  const iKey       = idempotencyKey(subject, linkTo);
+  const existingId = idempotencyIdx.get(iKey);
+  if (existingId) {
+    const existing = challenges.get(existingId);
+    if (existing && existing.status === 'pending' && Date.now() < new Date(existing.expiresAt).getTime()) {
+      return existing; // same challenge, same code — agent can reuse it
+    }
+    // Stale entry — clean up and issue fresh
+    idempotencyIdx.delete(iKey);
+  }
+
   const id  = crypto.randomUUID();
   const now = Date.now();
 
@@ -129,6 +155,7 @@ export function issueChallenge(subject: SubjectRef, linkTo?: SubjectRef): Challe
   };
 
   challenges.set(id, challenge);
+  idempotencyIdx.set(iKey, id);
   return challenge;
 }
 
@@ -152,7 +179,7 @@ export async function verifyChallenge(
     return { success: false, error: `Challenge is already ${challenge.status}` };
   }
   if (Date.now() > new Date(challenge.expiresAt).getTime()) {
-    challenges.delete(challengeId); // expired — remove immediately
+    deleteChallenge(challengeId, idempotencyKey(challenge.subject, challenge.linkTo));
     return { success: false, error: 'Challenge expired (24h limit)' };
   }
 
@@ -221,7 +248,7 @@ export async function verifyChallenge(
 
     // ── Both proofs passed — commit to graph ──────────────────────────────────
     challenge.status = 'verified';
-    challenges.delete(challengeId); // one-time use — remove immediately
+    deleteChallenge(challengeId, idempotencyKey(challenge.subject, challenge.linkTo));
 
     const evidenceBase = {
       challenge_id: challengeId,
@@ -262,7 +289,7 @@ export async function verifyChallenge(
 
   } catch (err) {
     challenge.status = 'failed';
-    challenges.delete(challengeId); // failed — remove, force fresh challenge
+    deleteChallenge(challengeId, idempotencyKey(challenge.subject, challenge.linkTo));
     return {
       success: false,
       error:   err instanceof Error ? err.message : 'Unknown verification error',
