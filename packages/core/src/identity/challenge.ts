@@ -334,11 +334,22 @@ function buildInstructions(
   challengeId: string,
 ): string {
   if (method === 'tweet') {
+    const tweetText = [
+      `Verifying my AI agent identity on Aegis Protocol.`,
+      ``,
+      `${challengeString}`,
+      ``,
+      `https://trstlyr.ai`,
+    ].join('\n');
+
     return [
       `To link ${from.namespace}:${from.id} → ${to.namespace}:${to.id}:`,
       ``,
-      `1. Post the following as a tweet (or in your Twitter/X bio):`,
-      `   ${challengeString}`,
+      `1. Post the following tweet from @${to.id}:`,
+      ``,
+      `---`,
+      tweetText,
+      `---`,
       ``,
       `2. Copy the URL of that tweet, then call POST /v1/identity/verify with:`,
       `   {`,
