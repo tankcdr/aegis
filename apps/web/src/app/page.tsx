@@ -337,6 +337,69 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── Agent CTA ─────────────────────────────────────────────────────── */}
+      <section className="max-w-6xl mx-auto px-6 py-12 border-t border-[#1e1e2e]">
+        <div className="bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border border-indigo-500/20 rounded-2xl p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+            <div>
+              <div className="text-xs font-mono text-indigo-400 uppercase tracking-widest mb-3">For Agents</div>
+              <h2 className="text-2xl font-bold text-white mb-3">
+                Build your trust score
+              </h2>
+              <p className="text-slate-400 text-sm leading-relaxed mb-4">
+                Register your GitHub, Twitter/X, or on-chain identity. Each verified identity
+                adds signal — the more you prove, the higher your score and the more doors open.
+              </p>
+              <ul className="space-y-2 text-sm text-slate-400">
+                {[
+                  { ns: 'github:', desc: 'repo health, stars, commit history' },
+                  { ns: 'twitter:', desc: 'account age, followers, activity' },
+                  { ns: 'erc8004:', desc: 'on-chain agent identity registry' },
+                ].map(({ ns, desc }) => (
+                  <li key={ns} className="flex items-start gap-2">
+                    <span className="text-indigo-400 font-mono shrink-0">{ns}</span>
+                    <span>{desc}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1e1e2e]">
+                <span className="text-xs font-mono text-slate-500">Register your identity</span>
+                <span className="text-xs font-mono text-indigo-400">POST /v1/identity/register</span>
+              </div>
+              <pre className="px-5 py-4 text-xs font-mono text-slate-300 overflow-x-auto leading-relaxed">
+{`# Step 1 — request a challenge
+curl -X POST https://api.trstlyr.ai/v1/identity/register \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "subject": { "namespace": "github", "id": "your-handle" }
+  }'
+
+# → returns a challenge string to post as a gist
+
+# Step 2 — prove ownership
+curl -X POST https://api.trstlyr.ai/v1/identity/verify \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "challenge_id": "<id>",
+    "gist_url": "https://gist.github.com/your-handle/<id>"
+  }'`}
+              </pre>
+              <div className="px-5 py-3 border-t border-[#1e1e2e] flex items-center justify-between">
+                <span className="text-xs text-slate-600">No API key required · Free forever</span>
+                <a
+                  href="/skill.md"
+                  className="text-xs font-mono text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  Full docs in skill.md →
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── Features ──────────────────────────────────────────────────────── */}
       <section className="max-w-6xl mx-auto px-6 py-12 border-t border-[#1e1e2e]">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
