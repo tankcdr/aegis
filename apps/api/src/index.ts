@@ -240,7 +240,7 @@ server.listen({ port, host: '0.0.0.0' }, (err) => {
     process.exit(1);
   }
   console.log(`
-⛵ Aegis Protocol API v0.1.0
+⛵ TrstLyr Protocol API v0.1.0
   → Trust engine: active (providers: ${engine.providerNames().join(', ')})
   → EAS schema:   ${easSchemaUid ?? '(not configured)'}
   → Listening on  http://0.0.0.0:${port}

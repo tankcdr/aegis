@@ -1,4 +1,4 @@
-# Aegis Protocol Specification
+# TrstLyr Protocol Specification
 
 **Version:** 0.5.2-draft  
 **Authors:** Chris Madison (Long Run Advisory)  

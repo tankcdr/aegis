@@ -1,6 +1,6 @@
 # @aegis-protocol/mcp
 
-MCP (Model Context Protocol) server for Aegis Protocol — gives AI agents the ability to check trust before acting.
+MCP (Model Context Protocol) server for TrstLyr Protocol — gives AI agents the ability to check trust before acting.
 
 Install it in Claude Desktop, Cursor, or any MCP-compatible host in minutes.
 

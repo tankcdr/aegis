@@ -66,7 +66,7 @@ export function issueChallenge(
 
   // Challenge string is short, unique, and human-readable
   const token = id.slice(0, 8).toUpperCase();
-  const challengeString = `aegis-verify:${token}:${from.namespace}:${from.id}`;
+  const challengeString = `trstlyr-verify:${token}:${from.namespace}:${from.id}`;
 
   const instructions = buildInstructions(from, to, method, challengeString, id);
 
@@ -335,7 +335,7 @@ function buildInstructions(
 ): string {
   if (method === 'tweet') {
     const tweetText = [
-      `Verifying my AI agent identity on Aegis Protocol.`,
+      `Verifying my AI agent identity on TrstLyr Protocol.`,
       ``,
       `${challengeString}`,
       ``,

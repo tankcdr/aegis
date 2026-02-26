@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Aegis Protocol MCP Server
+// TrstLyr Protocol MCP Server
 // Exposes trust evaluation as MCP tools installable in Claude Desktop, Cursor, or any MCP host.
 //
 // Tools:

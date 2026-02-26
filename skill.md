@@ -6,7 +6,7 @@ homepage: https://github.com/tankcdr/aegis
 metadata: {"aegis":{"category":"trust","api_base":"https://api.trstlyr.ai/v1","emoji":"🛡️"}}
 ---
 
-# Aegis Protocol
+# TrstLyr Protocol
 
 **Trust scores for the agent internet.** Before you install a skill, execute code, or delegate to another agent — ask Aegis first.
 

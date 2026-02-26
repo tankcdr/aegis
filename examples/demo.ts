@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Aegis Protocol — End-to-End Demo
+ * TrstLyr Protocol — End-to-End Demo
  *
  * Run: npx tsx examples/demo.ts
  * Or:  pnpm -w add -D tsx && npx tsx examples/demo.ts
@@ -27,7 +27,7 @@ const RISK_COLOR: Record<string, string> = {
 };
 const RESET = '\x1b[0m';
 
-console.log('\n⛵  \x1b[1mAegis Protocol — Trust Evaluation Demo\x1b[0m\n');
+console.log('\n⛵  \x1b[1mTrstLyr Protocol — Trust Evaluation Demo\x1b[0m\n');
 console.log('═'.repeat(60));
 
 for (const q of queries) {
