@@ -68,6 +68,16 @@ export interface VerifyProof {
 const challenges = new Map<string, Challenge>();
 const CHALLENGE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+// Purge expired challenges every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, challenge] of challenges) {
+    if (now > new Date(challenge.expiresAt).getTime()) {
+      challenges.delete(id);
+    }
+  }
+}, 10 * 60 * 1000).unref(); // .unref() so it doesn't block process exit
+
 // ─── Namespace → method mapping ───────────────────────────────────────────────
 
 function methodForNamespace(namespace: string): ChallengeMethod {
@@ -142,7 +152,7 @@ export async function verifyChallenge(
     return { success: false, error: `Challenge is already ${challenge.status}` };
   }
   if (Date.now() > new Date(challenge.expiresAt).getTime()) {
-    challenge.status = 'expired';
+    challenges.delete(challengeId); // expired — remove immediately
     return { success: false, error: 'Challenge expired (24h limit)' };
   }
 
@@ -211,6 +221,7 @@ export async function verifyChallenge(
 
     // ── Both proofs passed — commit to graph ──────────────────────────────────
     challenge.status = 'verified';
+    challenges.delete(challengeId); // one-time use — remove immediately
 
     const evidenceBase = {
       challenge_id: challengeId,
@@ -251,6 +262,7 @@ export async function verifyChallenge(
 
   } catch (err) {
     challenge.status = 'failed';
+    challenges.delete(challengeId); // failed — remove, force fresh challenge
     return {
       success: false,
       error:   err instanceof Error ? err.message : 'Unknown verification error',
