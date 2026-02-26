@@ -68,14 +68,14 @@ function recommendEmoji(rec: string): string {
 }
 
 function formatTrustReport(result: TrustResult, subject: string): string {
-  const scoreBar =
-    '█'.repeat(Math.round(result.trust_score * 20)) +
-    '░'.repeat(20 - Math.round(result.trust_score * 20));
+  // trust_score is 0-100
+  const filled = Math.round(result.trust_score / 5); // 100/20 = 5
+  const scoreBar = '█'.repeat(filled) + '░'.repeat(20 - filled);
 
   const lines: string[] = [
     `## Aegis Trust Report: \`${subject}\``,
     '',
-    `**Score:** [${scoreBar}] ${(result.trust_score * 100).toFixed(1)}%`,
+    `**Score:** [${scoreBar}] ${result.trust_score.toFixed(1)}%`,
     `**Confidence:** ${(result.confidence * 100).toFixed(1)}%`,
     `**Risk Level:** ${riskEmoji(result.risk_level)} ${result.risk_level.toUpperCase()}`,
     `**Recommendation:** ${recommendEmoji(result.recommendation)} ${result.recommendation.toUpperCase()}`,
@@ -182,12 +182,12 @@ server.registerTool(
       min_score: z
         .number()
         .min(0)
-        .max(1)
+        .max(100)
         .optional()
-        .describe('Minimum acceptable trust score (0–1). Default: 0.6'),
+        .describe('Minimum acceptable trust score (0–100). Default: 60'),
     },
   },
-  async ({ subject, action, min_score = 0.6 }) => {
+  async ({ subject, action, min_score = 60 }) => {
     const { namespace, id } = parseSubject(subject);
     const result = await engine.query({
       subject: { type: 'agent', namespace, id },
@@ -201,7 +201,7 @@ server.registerTool(
       verdict,
       '',
       `**Subject:** ${subject}`,
-      `**Score:** ${(result.trust_score * 100).toFixed(1)}% (minimum required: ${(min_score * 100).toFixed(1)}%)`,
+      `**Score:** ${result.trust_score.toFixed(1)}% (minimum required: ${min_score.toFixed(1)}%)`,
       `**Risk:** ${riskEmoji(result.risk_level)} ${result.risk_level}`,
       `**Recommendation:** ${recommendEmoji(result.recommendation)} ${result.recommendation}`,
       '',
@@ -210,7 +210,7 @@ server.registerTool(
         : `This subject does NOT meet the minimum trust threshold. ` +
           (result.fraud_signals.length > 0
             ? `${result.fraud_signals.length} fraud signal(s) detected.`
-            : `Score ${(result.trust_score * 100).toFixed(1)}% is below the required ${(min_score * 100).toFixed(1)}%.`),
+            : `Score ${result.trust_score.toFixed(1)}% is below the required ${min_score.toFixed(1)}%.`),
     ].join('\n');
 
     return { content: [{ type: 'text', text }] };
@@ -289,7 +289,7 @@ server.registerTool(
     lines.push(
       `After fusing all signals using **Subjective Logic** (Jøsang, 2001) with ` +
       `Ev-Trust evolutionary stability adjustment (λ=0.15, arXiv:2512.16167v2), ` +
-      `the projected trust score is **${(result.trust_score * 100).toFixed(1)}%** ` +
+      `the projected trust score is **${result.trust_score.toFixed(1)}%** ` +
       `with **${(result.confidence * 100).toFixed(1)}%** confidence. ` +
       `This corresponds to a **${result.risk_level}** risk level.`,
     );

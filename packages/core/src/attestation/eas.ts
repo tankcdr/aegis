@@ -95,7 +95,9 @@ export class EASWriter {
    */
   async attest(result: TrustResult): Promise<AttestationResult> {
     // Scale scores to uint256 (× 1e18)
-    const trustScoreScaled  = BigInt(Math.round(result.trust_score * 1e9)) * BigInt(1e9);
+    // trust_score is 0-100; scale to 0-1e18 for on-chain storage
+    const trustScoreScaled  = BigInt(Math.round((result.trust_score / 100) * 1e9)) * BigInt(1e9);
+    // confidence is 0-1; scale to 0-1e18
     const confidenceScaled  = BigInt(Math.round(result.confidence * 1e9)) * BigInt(1e9);
     const riskLevelUint     = RISK_LEVEL_UINT[result.risk_level] ?? 2;
 

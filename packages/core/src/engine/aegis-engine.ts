@@ -198,8 +198,8 @@ export class AegisEngine {
 
     let result: TrustResult = {
       subject: subjectKey,
-      trust_score: Math.round(adjustedScore * 10_000) / 10_000,
-      confidence: Math.round((1 - fusedOpinion.uncertainty) * 10_000) / 10_000,
+      trust_score: Math.round(adjustedScore * 10_000) / 100,   // 0-100 scale, 2 dp
+      confidence: Math.round((1 - fusedOpinion.uncertainty) * 10_000) / 10_000, // 0-1 scale
       risk_level: riskLevel,
       recommendation,
       signals: allSignals,
