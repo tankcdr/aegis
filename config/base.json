@@ -1,5 +1,5 @@
 {
-  "schemaUID": "0xfff1179b55bf0717c0a071da701b4f597a6bfe0669bcb1daca6a66f0e14d407d",
+  "schemaUid": "0xfff1179b55bf0717c0a071da701b4f597a6bfe0669bcb1daca6a66f0e14d407d",
   "schema": "string subject, uint256 trustScore, uint256 confidence, uint8 riskLevel, string signalSummary, string queryId",
   "chainId": "8453",
   "networkName": "base",

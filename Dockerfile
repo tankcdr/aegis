@@ -27,6 +27,8 @@ COPY --from=build /app/packages/core/dist /deploy/node_modules/@aegis-protocol/c
 COPY --from=build /app/apps/api/dist      /deploy/dist
 # Agent-readable skill manifest — served at GET /skill.md
 COPY --from=build /app/skill.md           /deploy/skill.md
+# Chain config (EAS schema UID, network)
+COPY --from=build /app/config             /deploy/config
 
 # ─── Runtime ──────────────────────────────────────────────────────────────────
 FROM node:24-alpine AS runtime
