@@ -72,6 +72,8 @@ curl -X POST https://api.trstlyr.ai/v1/trust/query \
 | `delegate` | high — grants another agent autonomy |
 | `transact` | critical — moves funds or assets |
 
+**`value_at_risk`** (optional, USD equivalent): the dollar value exposed if the subject is malicious. Used to tighten the recommendation threshold — a $0 install gets `install` at 65+, but a $1000 transaction requires 85+. Pass `0` if unknown or not applicable.
+
 **Response:**
 
 ```json
@@ -111,6 +113,40 @@ curl https://api.trstlyr.ai/v1/trust/score/github:tankcdr
 ```
 
 Returns the same shape as POST, using default context.
+
+---
+
+## Batch Query
+
+Evaluate up to 20 subjects in a single call — runs in parallel, cache hits are free:
+
+```bash
+curl -X POST https://api.trstlyr.ai/v1/trust/batch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subjects": [
+      { "namespace": "github",  "id": "tankcdr" },
+      { "namespace": "erc8004", "id": "19077" },
+      { "namespace": "clawhub", "id": "skill/weather" }
+    ],
+    "context": { "action": "install" }
+  }'
+```
+
+Response:
+```json
+{
+  "results": [
+    { "subject": "github:tankcdr", "trust_score": 50.1, ... },
+    { "subject": "erc8004:19077", "trust_score": 79.0, ... },
+    { "subject": "clawhub:skill/weather", "trust_score": 61.4, ... }
+  ],
+  "total": 3,
+  "evaluated_at": "2026-02-27T00:00:00.000Z"
+}'
+```
+
+Individual failures don't abort the batch — failed subjects return `{ "subject": "...", "error": "..." }`.
 
 ---
 
@@ -291,8 +327,12 @@ Optional env vars (all degrade gracefully if unset):
 | Plan | Requests/minute |
 |------|----------------|
 | Public (no key) | 30 |
-| Authenticated | 300 |
+| API key (`Authorization: Bearer <key>`) | 300 |
 | x402 | Unlimited (pay per attest) |
+
+API keys are available — email keys@trstlyr.ai or open an issue on GitHub. Keys are free during the beta.
+
+**Caching:** Responses are cached by subject for the duration of `ttl` (seconds). Within TTL, the cached result is returned immediately — no provider calls. After TTL expires, the next request triggers a fresh evaluation (blocking — no stale-while-refresh yet). Use the `ttl` field to decide how aggressively to cache on your side.
 
 ---
 

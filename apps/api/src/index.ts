@@ -69,6 +69,50 @@ server.post('/v1/trust/query', async (request, reply) => {
   return reply.send(result);
 });
 
+// POST /v1/trust/batch — evaluate up to 20 subjects in one call
+server.post('/v1/trust/batch', async (request, reply) => {
+  const body = request.body as {
+    subjects: Array<{ namespace: string; id: string }>;
+    context?: { action?: Action };
+  } | undefined;
+
+  if (!Array.isArray(body?.subjects) || body.subjects.length === 0) {
+    return reply.code(400).send({
+      error: '"subjects" must be a non-empty array',
+      example: {
+        subjects: [
+          { namespace: 'github', id: 'tankcdr' },
+          { namespace: 'erc8004', id: '19077' },
+        ],
+      },
+    });
+  }
+
+  if (body.subjects.length > 20) {
+    return reply.code(400).send({ error: 'Maximum 20 subjects per batch request' });
+  }
+
+  // Fan out in parallel — cache means repeated subjects are free
+  const results = await Promise.allSettled(
+    body.subjects.map(subject =>
+      engine.query({ subject: { type: 'agent', ...subject }, context: body.context }),
+    ),
+  );
+
+  return reply.send({
+    results: results.map((r, i) =>
+      r.status === 'fulfilled'
+        ? r.value
+        : {
+            subject: `${body.subjects[i]!.namespace}:${body.subjects[i]!.id}`,
+            error: r.reason instanceof Error ? r.reason.message : 'Query failed',
+          },
+    ),
+    total: body.subjects.length,
+    evaluated_at: new Date().toISOString(),
+  });
+});
+
 // GET /v1/trust/score/:subject — SPEC §5.2 (cached lookup)
 server.get<{ Params: { subject: string } }>(
   '/v1/trust/score/:subject',
