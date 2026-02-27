@@ -22,7 +22,7 @@ export { ClawHubProvider }  from './providers/index.js';
 
 // ── Identity graph ───────────────────────────────────────────────────────────
 export { identityGraph, IdentityGraph } from './identity/index.js';
-export { issueChallenge, verifyChallenge, getChallenge } from './identity/index.js';
+export { issueChallenge, verifyChallenge, getChallenge, importChallenge } from './identity/index.js';
 export { resolveIdentity, linkedNamespaces } from './identity/index.js';
 export type {
   Challenge,

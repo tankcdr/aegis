@@ -303,6 +303,16 @@ export function getChallenge(id: string): Challenge | undefined {
   return challenges.get(id);
 }
 
+// ─── Import (startup hydration) ───────────────────────────────────────────────
+
+/** Load a persisted challenge back into the in-memory store (e.g. after restart). */
+export function importChallenge(challenge: Challenge): void {
+  if (challenges.has(challenge.id)) return; // already present
+  challenges.set(challenge.id, challenge);
+  const iKey = idempotencyKey(challenge.subject, challenge.linkTo);
+  idempotencyIdx.set(iKey, challenge.id);
+}
+
 // ─── Tweet verification ───────────────────────────────────────────────────────
 
 async function verifyTweet(

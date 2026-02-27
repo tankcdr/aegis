@@ -308,6 +308,80 @@ server.registerTool(
   },
 );
 
+// ── Tool 4: trust_batch ───────────────────────────────────────────────────────
+
+server.registerTool(
+  'trust_batch',
+  {
+    title: 'TrstLyr Batch Trust Query',
+    description:
+      'Query trust scores for multiple agents or repositories in a single call. ' +
+      'Returns a ranked list sorted by trust score descending. ' +
+      'Use this when evaluating a list of dependencies, tools, or candidates.',
+    inputSchema: {
+      subjects: z
+        .array(z.string())
+        .min(1)
+        .max(20)
+        .describe(
+          'List of subjects to evaluate (max 20). ' +
+          'Format: "namespace:id" or "owner/repo". ' +
+          'Example: ["github:tankcdr/aegis", "github:openai", "erc8004:19077"]',
+        ),
+      action: z
+        .enum(['install', 'execute', 'delegate', 'transact', 'review'])
+        .optional()
+        .describe('Action being considered. Applied to all subjects.'),
+    },
+  },
+  async ({ subjects, action }) => {
+    const results = await Promise.allSettled(
+      subjects.map(subject => {
+        const { namespace, id } = parseSubject(subject);
+        return engine.query({
+          subject: { type: 'agent', namespace, id },
+          context: action ? { action: action as Action } : undefined,
+        }).then(r => ({ subject, result: r }));
+      }),
+    );
+
+    // Sort fulfilled results by trust_score descending
+    const rows = results
+      .map((r, i) =>
+        r.status === 'fulfilled'
+          ? r.value
+          : { subject: subjects[i]!, result: null as unknown as import('@aegis-protocol/core').TrustResult, error: true },
+      )
+      .sort((a, b) => {
+        if (!a.result) return 1;
+        if (!b.result) return -1;
+        return b.result.trust_score - a.result.trust_score;
+      });
+
+    const lines: string[] = [
+      `## TrstLyr Batch Report (${subjects.length} subjects)`,
+      '',
+      '| # | Subject | Score | Risk | Recommendation |',
+      '|---|---------|-------|------|----------------|',
+    ];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]!;
+      if (!row.result) {
+        lines.push(`| ${i + 1} | \`${row.subject}\` | — | — | ❌ Error |`);
+      } else {
+        lines.push(
+          `| ${i + 1} | \`${row.subject}\` | ${row.result.trust_score.toFixed(1)}% | ${riskEmoji(row.result.risk_level)} ${row.result.risk_level} | ${recommendEmoji(row.result.recommendation)} ${row.result.recommendation} |`,
+        );
+      }
+    }
+
+    lines.push('', `*Evaluated: ${new Date().toISOString()}*`);
+
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
+  },
+);
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 
 const transport = new StdioServerTransport();

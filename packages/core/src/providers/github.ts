@@ -41,6 +41,14 @@ interface GitHubRateLimit {
   };
 }
 
+interface GitHubCommit {
+  sha: string;
+}
+
+interface GitHubContributor {
+  login: string;
+}
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export class GitHubProvider implements Provider {
@@ -149,36 +157,38 @@ export class GitHubProvider implements Provider {
     // ── repo_health (only when id contains "/") ────────────────────────────────
     if (repo) {
       try {
-        const repoData = await this.fetchRepo(owner, repo);
+        const since90d = new Date(Date.now() - 90 * 86_400_000).toISOString();
+
+        // Fan out: base data + CI check + recent commits + contributors in parallel
+        const [repoData, hasCI, recentCommits, contributors] = await Promise.all([
+          this.fetchRepo(owner, repo),
+          this.fetchHasCI(owner, repo),
+          this.fetchRecentCommits(owner, repo, since90d),
+          this.fetchContributorCount(owner, repo),
+        ]);
+
         const daysSincePush =
           (Date.now() - new Date(repoData.pushed_at).getTime()) / 86_400_000;
 
-        const starScore = Math.min(repoData.stargazers_count / 1000, 1.0) * 0.25;
-        const forkScore = Math.min(repoData.forks_count / 200, 1.0) * 0.15;
-        const recencyScore = Math.max(0, 1 - daysSincePush / 365) * 0.3;
-        const issuesRatio =
+        const starScore        = Math.min(repoData.stargazers_count / 1000, 1.0) * 0.20;
+        const forkScore        = Math.min(repoData.forks_count / 200, 1.0)       * 0.10;
+        const recencyScore     = Math.max(0, 1 - daysSincePush / 365)             * 0.20;
+        const issuesRatio      =
           repoData.open_issues_count > 0
-            ? Math.max(
-                0,
-                1 - repoData.open_issues_count / (repoData.stargazers_count + 1),
-              ) * 0.15
-            : 0.15;
-        const licenseBonus = repoData.license ? 0.1 : 0.0;
+            ? Math.max(0, 1 - repoData.open_issues_count / (repoData.stargazers_count + 1)) * 0.10
+            : 0.10;
+        const licenseBonus     = repoData.license     ? 0.10 : 0.0;
         const descriptionBonus = repoData.description ? 0.05 : 0.0;
+        const ciBonus          = hasCI                ? 0.10 : 0.0;
+        const commitScore      = Math.min(recentCommits / 50, 1.0)  * 0.10;
+        const contribScore     = Math.min(contributors / 10, 1.0)   * 0.05;
 
         const score = Math.min(
-          starScore +
-            forkScore +
-            recencyScore +
-            issuesRatio +
-            licenseBonus +
-            descriptionBonus,
+          starScore + forkScore + recencyScore + issuesRatio +
+          licenseBonus + descriptionBonus + ciBonus + commitScore + contribScore,
           1.0,
         );
-        const confidence = Math.min(
-          0.4 + repoData.stargazers_count / 5000,
-          0.9,
-        );
+        const confidence = Math.min(0.4 + repoData.stargazers_count / 5000, 0.9);
 
         signals.push({
           provider: 'github',
@@ -186,14 +196,17 @@ export class GitHubProvider implements Provider {
           score,
           confidence,
           evidence: {
-            full_name: repoData.full_name,
-            stars: repoData.stargazers_count,
-            forks: repoData.forks_count,
-            open_issues: repoData.open_issues_count,
-            pushed_at: repoData.pushed_at,
-            days_since_push: Math.round(daysSincePush),
-            license: repoData.license?.spdx_id ?? null,
-            has_description: Boolean(repoData.description),
+            full_name:         repoData.full_name,
+            stars:             repoData.stargazers_count,
+            forks:             repoData.forks_count,
+            open_issues:       repoData.open_issues_count,
+            pushed_at:         repoData.pushed_at,
+            days_since_push:   Math.round(daysSincePush),
+            license:           repoData.license?.spdx_id ?? null,
+            has_description:   Boolean(repoData.description),
+            has_ci:            hasCI,
+            commits_last_90d:  recentCommits,
+            contributor_count: contributors,
           },
           timestamp,
           ttl: 1800,
@@ -252,6 +265,51 @@ export class GitHubProvider implements Provider {
     return this.fetch<GitHubRepo>(
       `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
     );
+  }
+
+  /** Returns true if the repo has a .github/workflows directory (CI present). */
+  private async fetchHasCI(owner: string, repo: string): Promise<boolean> {
+    try {
+      const res = await this.fetchRaw(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/.github/workflows`,
+      );
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Returns the number of commits since a given ISO date (capped at 100). */
+  private async fetchRecentCommits(owner: string, repo: string, since: string): Promise<number> {
+    try {
+      const commits = await this.fetch<GitHubCommit[]>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits?since=${since}&per_page=100`,
+      );
+      return Array.isArray(commits) ? commits.length : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /** Returns the number of distinct contributors (capped at 30). */
+  private async fetchContributorCount(owner: string, repo: string): Promise<number> {
+    try {
+      const contributors = await this.fetch<GitHubContributor[]>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contributors?per_page=30&anon=false`,
+      );
+      return Array.isArray(contributors) ? contributors.length : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  private async fetchRaw(path: string): Promise<Response> {
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github.v3+json',
+      'User-Agent': 'aegis-protocol/1.0',
+    };
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+    return globalThis.fetch(`${this.baseUrl}${path}`, { headers });
   }
 
   private async fetch<T>(path: string): Promise<T> {

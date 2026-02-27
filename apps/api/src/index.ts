@@ -3,13 +3,13 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { AegisEngine, identityGraph, issueChallenge, verifyChallenge, getChallenge } from '@aegis-protocol/core';
+import { AegisEngine, identityGraph, issueChallenge, verifyChallenge, getChallenge, importChallenge } from '@aegis-protocol/core';
 import type { Action, Subject } from '@aegis-protocol/core';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { registerAttestRoutes } from './routes/attest.js';
-import { initDb, saveIdentityLink, loadIdentityLinks, dbStats } from './db.js';
+import { initDb, saveIdentityLink, loadIdentityLinks, dbStats, saveChallenge, deletePersistedChallenge, loadPendingChallenges } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -135,6 +135,68 @@ server.get<{ Params: { subject: string } }>(
   },
 );
 
+// GET /v1/trust/score/:subject/badge.svg — embeddable SVG trust badge
+server.get<{ Params: { subject: string } }>(
+  '/v1/trust/score/:subject/badge.svg',
+  async (request, reply) => {
+    const raw = decodeURIComponent(request.params.subject);
+    const colonIdx = raw.indexOf(':');
+    const namespace = colonIdx > 0 ? raw.slice(0, colonIdx) : 'github';
+    const id        = colonIdx > 0 ? raw.slice(colonIdx + 1) : raw;
+
+    const result = await engine.query({ subject: { type: 'agent', namespace, id } });
+
+    const score = result.trust_score.toFixed(1);
+    const color =
+      result.risk_level === 'minimal' ? '#44cc11' :
+      result.risk_level === 'low'     ? '#97ca00' :
+      result.risk_level === 'medium'  ? '#dfb317' :
+      result.risk_level === 'high'    ? '#e05d44' : '#c0392b';
+
+    const label      = 'trstlyr';
+    const value      = `${score}%`;
+    const labelW     = 62;
+    const valueW     = 46;
+    const totalW     = labelW + valueW;
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="20" role="img" aria-label="${label}: ${value}">
+  <title>${label}: ${value}</title>
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <clipPath id="r"><rect width="${totalW}" height="20" rx="3" fill="#fff"/></clipPath>
+  <g clip-path="url(#r)">
+    <rect width="${labelW}" height="20" fill="#555"/>
+    <rect x="${labelW}" width="${valueW}" height="20" fill="${color}"/>
+    <rect width="${totalW}" height="20" fill="url(#s)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="110" transform="scale(.1)" textLength="10">
+    <text aria-hidden="true" x="${labelW * 5}" y="150" fill="#010101" fill-opacity=".3" transform="scale(1)" textLength="${(labelW - 10) * 10}" lengthAdjust="spacing">${label}</text>
+    <text x="${labelW * 5}" y="140" textLength="${(labelW - 10) * 10}" lengthAdjust="spacing">${label}</text>
+    <text aria-hidden="true" x="${(labelW + valueW / 2) * 10}" y="150" fill="#010101" fill-opacity=".3" textLength="${(valueW - 10) * 10}" lengthAdjust="spacing">${value}</text>
+    <text x="${(labelW + valueW / 2) * 10}" y="140" textLength="${(valueW - 10) * 10}" lengthAdjust="spacing">${value}</text>
+  </g>
+</svg>`;
+
+    return reply
+      .header('Content-Type', 'image/svg+xml')
+      .header('Cache-Control', 'public, max-age=300')
+      .header('X-Content-Type-Options', 'nosniff')
+      .send(svg);
+  },
+);
+
+// GET /v1/providers — list registered providers and their live health
+server.get('/v1/providers', async (_request, reply) => {
+  const health = await engine.health();
+  return reply.send({
+    providers: health,
+    total: health.length,
+    evaluated_at: new Date().toISOString(),
+  });
+});
+
 // GET /v1/identity/:namespace/:id/links — list all verified links for an identifier
 server.get<{ Params: { namespace: string; id: string } }>(
   '/v1/identity/:namespace/:id/links',
@@ -179,6 +241,22 @@ server.post('/v1/identity/register', async (request, reply) => {
   }
 
   const challenge = issueChallenge(body.subject, body.link_to);
+
+  // Persist so a restart doesn't invalidate in-flight verifications
+  await saveChallenge({
+    id:               challenge.id,
+    subject_ns:       challenge.subject.namespace,
+    subject_id:       challenge.subject.id,
+    link_to_ns:       challenge.linkTo?.namespace ?? null,
+    link_to_id:       challenge.linkTo?.id ?? null,
+    method:           challenge.method,
+    challenge_string: challenge.challengeString,
+    instructions:     challenge.instructions,
+    status:           'pending',
+    created_at:       challenge.createdAt,
+    expires_at:       challenge.expiresAt,
+  });
+
   return reply.code(201).send({
     challenge_id:     challenge.id,
     challenge_string: challenge.challengeString,
@@ -233,6 +311,9 @@ server.post('/v1/identity/verify', async (request, reply) => {
   if (!result.success) {
     return reply.code(422).send({ error: result.error });
   }
+
+  // Remove from DB — challenge is consumed
+  await deletePersistedChallenge(body.challenge_id);
 
   // Persist to DB — survives restarts
   if (result.registered && result.method) {
@@ -341,6 +422,25 @@ const port = parseInt(process.env['PORT'] ?? '3000', 10);
 
 // ── Startup: init DB then hydrate in-memory graph ─────────────────────────────
 await initDb();
+
+// Restore pending challenges into the in-memory store
+const savedChallenges = await loadPendingChallenges();
+for (const c of savedChallenges) {
+  importChallenge({
+    id:              c.id,
+    subject:         { namespace: c.subject_ns, id: c.subject_id },
+    linkTo:          c.link_to_ns && c.link_to_id ? { namespace: c.link_to_ns, id: c.link_to_id } : undefined,
+    method:          c.method as 'tweet' | 'gist' | 'wallet_signature',
+    challengeString: c.challenge_string,
+    instructions:    c.instructions,
+    createdAt:       c.created_at,
+    expiresAt:       c.expires_at,
+    status:          'pending',
+  });
+}
+if (savedChallenges.length > 0) {
+  console.log(`[db] Restored ${savedChallenges.length} pending challenge(s)`);
+}
 
 // Restore verified identity links into the in-memory graph
 const savedLinks = await loadIdentityLinks();

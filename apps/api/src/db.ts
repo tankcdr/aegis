@@ -133,6 +133,46 @@ export async function loadIdentityLinks(): Promise<PersistedLink[]> {
   return (data ?? []) as PersistedLink[];
 }
 
+// ─── Pending challenges ───────────────────────────────────────────────────────
+
+export interface PersistedChallenge {
+  id:               string;
+  subject_ns:       string;
+  subject_id:       string;
+  link_to_ns?:      string | null;
+  link_to_id?:      string | null;
+  method:           string;
+  challenge_string: string;
+  instructions:     string;
+  status:           string;
+  created_at:       string;
+  expires_at:       string;
+}
+
+export async function saveChallenge(c: PersistedChallenge): Promise<void> {
+  if (!supabase) return;
+  await supabase.from('pending_challenges').upsert(c, { onConflict: 'id' });
+}
+
+export async function deletePersistedChallenge(id: string): Promise<void> {
+  if (!supabase) return;
+  await supabase.from('pending_challenges').delete().eq('id', id);
+}
+
+export async function loadPendingChallenges(): Promise<PersistedChallenge[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('pending_challenges')
+    .select('*')
+    .eq('status', 'pending')
+    .gt('expires_at', new Date().toISOString());
+  if (error) {
+    console.error('[db] Failed to load pending challenges:', error.message);
+    return [];
+  }
+  return (data ?? []) as PersistedChallenge[];
+}
+
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
 export async function dbStats(): Promise<{
