@@ -18,10 +18,12 @@
     "dotenv": "^16.4.0",
     "ethers": "^6.11.0",
     "fastify": "^4.26.0",
+    "pg": "^8.19.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/pg": "^8.16.0",
     "typescript": "^5.4.0"
   }
 }

@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { registerAttestRoutes } from './routes/attest.js';
-import { storeStats } from './x402/store.js';
+import { initDb, saveIdentityLink, loadIdentityLinks, dbStats } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -234,6 +234,39 @@ server.post('/v1/identity/verify', async (request, reply) => {
     return reply.code(422).send({ error: result.error });
   }
 
+  // Persist to DB — survives restarts
+  if (result.registered && result.method) {
+    const [fromNs, ...fromIdParts] = result.registered.split(':');
+    const fromId = fromIdParts.join(':');
+    const now = new Date().toISOString();
+    await saveIdentityLink({
+      id:          `${result.registered}:${now}`,
+      from_ns:     fromNs!,
+      from_id:     fromId,
+      to_ns:       fromNs!,
+      to_id:       fromId,
+      method:      result.method,
+      confidence:  result.confidence ?? 0.8,
+      evidence:    { challenge_id: body?.challenge_id },
+      verified_at: now,
+    });
+
+    if (result.linked) {
+      const [toNs, ...toIdParts] = result.linked.split(':');
+      await saveIdentityLink({
+        id:          `${result.registered}:${result.linked}:${now}`,
+        from_ns:     fromNs!,
+        from_id:     fromId,
+        to_ns:       toNs!,
+        to_id:       toIdParts.join(':'),
+        method:      result.method,
+        confidence:  result.confidence ?? 0.8,
+        evidence:    { challenge_id: body?.challenge_id },
+        verified_at: now,
+      });
+    }
+  }
+
   const msg = result.linked
     ? `✅ ${result.registered} verified and linked to ${result.linked} (confidence: ${result.confidence})`
     : `✅ ${result.registered} verified (confidence: ${result.confidence})`;
@@ -296,7 +329,7 @@ server.get('/health', async () => {
       // Address is derived from AEGIS_ATTESTATION_PRIVATE_KEY at startup — same wallet for both
       attestation_enabled: process.env['ATTESTATION_ENABLED'] === 'true',
       network: 'Base Mainnet',
-      ...storeStats(),
+      ...await dbStats(),
     },
     uptime_seconds: process.uptime(),
   };
@@ -305,6 +338,23 @@ server.get('/health', async () => {
 // ── Start ─────────────────────────────────────────────────────────────────────
 
 const port = parseInt(process.env['PORT'] ?? '3000', 10);
+
+// ── Startup: init DB then hydrate in-memory graph ─────────────────────────────
+await initDb();
+
+// Restore verified identity links into the in-memory graph
+const savedLinks = await loadIdentityLinks();
+for (const link of savedLinks) {
+  identityGraph.addLink(
+    { namespace: link.from_ns, id: link.from_id },
+    { namespace: link.to_ns,   id: link.to_id   },
+    link.method as 'tweet_challenge' | 'wallet_signature' | 'erc8004_services',
+    link.evidence,
+  );
+}
+if (savedLinks.length > 0) {
+  console.log(`[db] Restored ${savedLinks.length} identity link(s)`);
+}
 
 server.listen({ port, host: '0.0.0.0' }, (err) => {
   if (err) {

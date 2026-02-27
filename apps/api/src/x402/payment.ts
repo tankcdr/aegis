@@ -140,9 +140,9 @@ export async function checkAttestationGate(
 
   // ── No payment header ────────────────────────────────────────────────────────
   if (!payment) {
-    if (!hasUsedFree(subject)) {
+    if (!await hasUsedFree(subject)) {
       // Grant free attestation
-      markFreeUsed(subject);
+      await markFreeUsed(subject);
       return true;
     }
 
@@ -164,7 +164,7 @@ export async function checkAttestationGate(
   // Replay protection
   const nonce = payment.payload?.authorization?.nonce;
   if (nonce) {
-    if (isNonceUsed(nonce)) {
+    if (await isNonceUsed(nonce)) {
       await reply.code(402).send({ error: 'Payment nonce already used — replay detected' });
       return false;
     }
@@ -185,7 +185,7 @@ export async function checkAttestationGate(
   }
 
   // Mark nonce used before we proceed (prevents race-condition replay)
-  if (nonce) markNonceUsed(nonce);
+  if (nonce) await markNonceUsed(nonce);
 
   // Settle asynchronously — don't hold the HTTP response
   settlePayment(payment, requirement).catch(() => {/* logged inside */});
