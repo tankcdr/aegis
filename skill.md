@@ -326,13 +326,10 @@ Optional env vars (all degrade gracefully if unset):
 
 | Plan | Requests/minute |
 |------|----------------|
-| Public (no key) | 30 |
-| API key (`Authorization: Bearer <key>`) | 300 |
+| Public | 30 |
 | x402 | Unlimited (pay per attest) |
 
-API keys are available — email keys@trstlyr.ai or open an issue on GitHub. Keys are free during the beta.
-
-**Caching:** Responses are cached by subject for the duration of `ttl` (seconds). Within TTL, the cached result is returned immediately — no provider calls. After TTL expires, the next request triggers a fresh evaluation (blocking — no stale-while-refresh yet). Use the `ttl` field to decide how aggressively to cache on your side.
+**Caching:** Responses are cached by subject for the duration of `ttl` (seconds). Within TTL, the cached result is returned immediately. After TTL expires, the next request triggers a fresh evaluation — plan for occasional latency spikes on cold queries. Use the `ttl` field to decide how aggressively to cache on your side.
 
 ---
 
