@@ -20,7 +20,7 @@ const engine = new AegisEngine();
 // ── Server ────────────────────────────────────────────────────────────────────
 
 const server = new McpServer(
-  { name: 'aegis-protocol', version: '0.1.0' },
+  { name: 'trstlyr-protocol', version: '0.1.0' },
   { capabilities: { tools: {} } },
 );
 
@@ -73,7 +73,7 @@ function formatTrustReport(result: TrustResult, subject: string): string {
   const scoreBar = '█'.repeat(filled) + '░'.repeat(20 - filled);
 
   const lines: string[] = [
-    `## Aegis Trust Report: \`${subject}\``,
+    `## TrstLyr Trust Report: \`${subject}\``,
     '',
     `**Score:** [${scoreBar}] ${result.trust_score.toFixed(1)}%`,
     `**Confidence:** ${(result.confidence * 100).toFixed(1)}%`,
@@ -132,9 +132,9 @@ function formatTrustReport(result: TrustResult, subject: string): string {
 server.registerTool(
   'trust_query',
   {
-    title: 'Aegis Trust Query',
+    title: 'TrstLyr Trust Query',
     description:
-      'Query the Aegis trust score for an agent, skill, or GitHub repository. ' +
+      'Query the TrstLyr trust score for an agent, skill, or GitHub repository. ' +
       'Returns a full trust assessment including score, risk level, recommendation, ' +
       'and evidence from signal providers. ' +
       'Subject format: "github:owner/repo", "github:owner", or just "owner/repo".',
@@ -166,7 +166,7 @@ server.registerTool(
 server.registerTool(
   'should_proceed',
   {
-    title: 'Aegis Should Proceed',
+    title: 'TrstLyr Should Proceed',
     description:
       'Quick binary check: should an AI agent proceed with an action on a given subject? ' +
       'Returns a clear YES or NO with reasoning. ' +
@@ -222,10 +222,10 @@ server.registerTool(
 server.registerTool(
   'trust_explain',
   {
-    title: 'Aegis Trust Explain',
+    title: 'TrstLyr Trust Explain',
     description:
       'Get a human-readable narrative explanation of why a subject received its trust score. ' +
-      'Useful for transparency, auditing, and understanding Aegis trust assessments.',
+      'Useful for transparency, auditing, and understanding TrstLyr trust assessments.',
     inputSchema: {
       subject: z
         .string()
@@ -241,7 +241,7 @@ server.registerTool(
     const lines: string[] = [
       `## Why does \`${subject}\` have a ${result.risk_level} trust rating?`,
       '',
-      `Aegis evaluated \`${subject}\` using **${result.signals.length}** signal${result.signals.length !== 1 ? 's' : ''}` +
+      `TrstLyr evaluated \`${subject}\` using **${result.signals.length}** signal${result.signals.length !== 1 ? 's' : ''}` +
         (result.unresolved.length > 0 ? ` (${result.unresolved.length} provider(s) could not be reached)` : '') +
         ':',
       '',
