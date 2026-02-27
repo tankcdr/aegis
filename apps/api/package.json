@@ -14,7 +14,7 @@
   "dependencies": {
     "@aegis-protocol/core": "workspace:*",
     "@fastify/cors": "^9.0.0",
-    "@fastify/rate-limit": "^9.0.0",
+    "@fastify/rate-limit": "^9.1.0",
     "@supabase/supabase-js": "^2.98.0",
     "dotenv": "^16.4.0",
     "ethers": "^6.11.0",

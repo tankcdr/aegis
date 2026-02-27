@@ -17,7 +17,7 @@ importers:
         specifier: ^9.0.0
         version: 9.0.1
       '@fastify/rate-limit':
-        specifier: ^9.0.0
+        specifier: ^9.1.0
         version: 9.1.0
       '@supabase/supabase-js':
         specifier: ^2.98.0

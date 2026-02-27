@@ -3,13 +3,14 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import { AegisEngine, identityGraph, issueChallenge, verifyChallenge, getChallenge, importChallenge } from '@aegis-protocol/core';
 import type { Action, Subject } from '@aegis-protocol/core';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { registerAttestRoutes } from './routes/attest.js';
-import { initDb, saveIdentityLink, loadIdentityLinks, dbStats, saveChallenge, deletePersistedChallenge, loadPendingChallenges } from './db.js';
+import { initDb, saveIdentityLink, loadIdentityLinks, dbStats, saveChallenge, deletePersistedChallenge, loadPendingChallenges, saveScoreHistory, loadScoreHistory } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -33,6 +34,19 @@ const engine = new AegisEngine();
 
 // ── Server ────────────────────────────────────────────────────────────────────
 const server = Fastify({ logger: process.env['NODE_ENV'] !== 'test' });
+
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+await server.register(rateLimit, {
+  global: true,
+  max: 60,               // 60 req/min per IP — baseline
+  timeWindow: '1 minute',
+  keyGenerator: (req) => req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ?? req.ip,
+  errorResponseBuilder: (_req, context) => ({
+    error: 'Rate limit exceeded',
+    limit: context.max,
+    retry_after_seconds: Math.ceil(context.ttl / 1000),
+  }),
+});
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 await server.register(cors, {
@@ -66,6 +80,16 @@ server.post('/v1/trust/query', async (request, reply) => {
     });
   }
   const result = await engine.query({ subject, context: body?.context });
+  saveScoreHistory({
+    subject: result.subject,
+    trust_score: result.trust_score,
+    confidence: result.confidence,
+    risk_level: result.risk_level,
+    recommendation: result.recommendation,
+    signal_count: result.signals.length,
+    query_id: result.metadata?.query_id ?? null,
+    evaluated_at: result.evaluated_at,
+  }).catch(() => {}); // fire-and-forget, non-fatal
   return reply.send(result);
 });
 
@@ -131,7 +155,45 @@ server.get<{ Params: { subject: string } }>(
     const result = await engine.query({
       subject: { type: 'agent', namespace, id },
     });
+    saveScoreHistory({
+      subject: result.subject,
+      trust_score: result.trust_score,
+      confidence: result.confidence,
+      risk_level: result.risk_level,
+      recommendation: result.recommendation,
+      signal_count: result.signals.length,
+      query_id: result.metadata?.query_id ?? null,
+      evaluated_at: result.evaluated_at,
+    }).catch(() => {});
     return reply.send(result);
+  },
+);
+
+// GET /v1/trust/history/:subject — trust score over time
+server.get<{ Params: { subject: string }; Querystring: { limit?: string } }>(
+  '/v1/trust/history/:subject',
+  async (request, reply) => {
+    const raw     = decodeURIComponent(request.params.subject);
+    const colonIdx = raw.indexOf(':');
+    const namespace = colonIdx > 0 ? raw.slice(0, colonIdx) : 'github';
+    const id        = colonIdx > 0 ? raw.slice(colonIdx + 1) : raw;
+    const subject   = `${namespace}:${id}`;
+    const limit     = Math.min(parseInt(request.query.limit ?? '30', 10), 100);
+
+    const history = await loadScoreHistory(subject, limit);
+
+    return reply.send({
+      subject,
+      count: history.length,
+      history: history.map(h => ({
+        trust_score:    h.trust_score,
+        confidence:     h.confidence,
+        risk_level:     h.risk_level,
+        recommendation: h.recommendation,
+        signal_count:   h.signal_count,
+        evaluated_at:   h.evaluated_at,
+      })),
+    });
   },
 );
 
@@ -222,9 +284,10 @@ server.get<{ Params: { namespace: string; id: string } }>(
 );
 
 // POST /v1/identity/register — register an identity and get a verification challenge
+// Tighter rate limit: 20/min — prevents challenge spam
 // Method is auto-selected by namespace (twitter→tweet, github→gist, erc8004→wallet_signature)
 // Optional link_to: link to an already-verified identity on success
-server.post('/v1/identity/register', async (request, reply) => {
+server.post('/v1/identity/register', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
   const body = request.body as {
     subject?:  { namespace: string; id: string };
     link_to?:  { namespace: string; id: string };

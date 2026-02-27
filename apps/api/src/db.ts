@@ -173,6 +173,43 @@ export async function loadPendingChallenges(): Promise<PersistedChallenge[]> {
   return (data ?? []) as PersistedChallenge[];
 }
 
+// ─── Trust score history ──────────────────────────────────────────────────────
+
+export interface ScoreHistoryEntry {
+  id?:            string;
+  subject:        string;
+  trust_score:    number;
+  confidence:     number;
+  risk_level:     string;
+  recommendation: string;
+  signal_count:   number;
+  query_id?:      string | null;
+  evaluated_at:   string;
+}
+
+export async function saveScoreHistory(entry: ScoreHistoryEntry): Promise<void> {
+  if (!supabase) return;
+  await supabase.from('trust_score_history').insert(entry);
+}
+
+export async function loadScoreHistory(
+  subject: string,
+  limit = 30,
+): Promise<ScoreHistoryEntry[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('trust_score_history')
+    .select('*')
+    .eq('subject', subject)
+    .order('evaluated_at', { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.error('[db] Failed to load score history:', error.message);
+    return [];
+  }
+  return (data ?? []) as ScoreHistoryEntry[];
+}
+
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
 export async function dbStats(): Promise<{

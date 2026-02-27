@@ -28,8 +28,8 @@ export async function registerAttestRoutes(
     return easWriter;
   };
 
-  // POST /v1/attest
-  server.post<{ Body: AttestBody }>('/v1/attest', async (request, reply) => {
+  // POST /v1/attest — 10 req/min (expensive: runs engine + writes EAS)
+  server.post<{ Body: AttestBody }>('/v1/attest', { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const subject = request.body?.subject;
     if (!subject || typeof subject !== 'string') {
       return reply.code(400).send({
