@@ -13,15 +13,19 @@ import { storeStats } from './x402/store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// ── EAS schema UID from config ────────────────────────────────────────────────
+// ── EAS schema UID — env var takes priority, fall back to config file ─────────
 let easSchemaUid: string | undefined;
-try {
-  const cfg = JSON.parse(
-    readFileSync(join(__dirname, '../../../config/base.json'), 'utf8'),
-  ) as { schemaUid?: string };
-  easSchemaUid = cfg.schemaUid;
-} catch {
-  // config not present — attestation disabled
+easSchemaUid = process.env['AEGIS_EAS_SCHEMA_UID'];
+if (!easSchemaUid) {
+  try {
+    // process.cwd() = repo root locally, /app in Docker — both work
+    const cfg = JSON.parse(
+      readFileSync(join(process.cwd(), 'config/base.json'), 'utf8'),
+    ) as { schemaUid?: string };
+    easSchemaUid = cfg.schemaUid;
+  } catch {
+    // config not present — schema UID unset
+  }
 }
 
 // ── Engine ────────────────────────────────────────────────────────────────────
