@@ -57,12 +57,9 @@ jobs:
           cache-to:   type=gha,mode=max
 
       - name: Trigger Railway redeploy
-        if: env.RAILWAY_DEPLOY_HOOK != ''
         run: |
-          curl -s -X POST "$RAILWAY_DEPLOY_HOOK" \
-            -H "Content-Type: application/json" \
-            --fail \
-            && echo "Railway redeploy triggered ✅" \
-            || echo "Railway webhook failed (non-fatal) ⚠️"
+          npm install -g @railway/cli@latest --silent
+          railway redeploy --service "$RAILWAY_SERVICE_ID" --yes
         env:
-          RAILWAY_DEPLOY_HOOK: ${{ secrets.RAILWAY_DEPLOY_HOOK }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
