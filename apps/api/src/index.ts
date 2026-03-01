@@ -33,14 +33,11 @@ if (!easSchemaUid) {
 const engine = new AegisEngine();
 
 // ── Server ────────────────────────────────────────────────────────────────────
-// trustProxy: Railway sits exactly 1 hop in front of us.
-// Fastify removes the rightmost (Railway-added) entry from X-Forwarded-For and
-// returns the next one as req.ip — preventing clients from spoofing by prepending
-// fake IPs, since Railway always appends the real socket IP at the right.
-const PROXY_HOPS = parseInt(process.env['TRUSTED_PROXY_HOPS'] ?? '1', 10);
+// trustProxy: false — use raw socket IP for rate limiting.
+// X-Forwarded-For is client-controlled and cannot be trusted without a verified proxy allowlist.
 const server = Fastify({
   logger: process.env['NODE_ENV'] !== 'test',
-  trustProxy: PROXY_HOPS,
+  trustProxy: false,
 });
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
@@ -48,7 +45,6 @@ await server.register(rateLimit, {
   global: true,
   max: 60,               // 60 req/min per IP — baseline
   timeWindow: '1 minute',
-  keyGenerator: (req) => req.ip,
   errorResponseBuilder: (_req, context) => ({
     error: 'Rate limit exceeded',
     limit: context.max,
