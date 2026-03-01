@@ -98,6 +98,16 @@ TrstLyr answers it. ⛵
 
 ---
 
+**A Note on Public Good**
+
+We're not building TrstLyr to lock it down. The agent internet needs shared trust infrastructure the same way the web needed SSL — not owned by one company, not gated behind a subscription, just there.
+
+The Synthesis hackathon is part of a larger conversation: can we bootstrap this as a community project? GitHub stars, adoption by OpenClaw and other agent frameworks, open governance over the scoring spec. If there's support here, we'd like to take it further — open-source funding, a foundation, a public registry that any agent can query for free.
+
+The free tier exists for a reason. The $0.01 USDC attestation fee is there to keep the lights on, not to build a moat.
+
+---
+
 ## Submission Checklist
 - [ ] Get trackUUIDs (available at hackathon kickoff March 4)
 - [ ] Submit via POST /projects to synthesis.devfolio.co
