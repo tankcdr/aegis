@@ -164,11 +164,11 @@ export class EASWriter {
     // Attested event topic: keccak256("Attested(address,address,bytes32,bytes32)")
     const ATTESTED_TOPIC = '0x8bf46bf4cfd674fa735a3d63ec1c9ad4153f033c290341f3a588b75685141b35';
 
+    // Attested event: Attested(address indexed recipient, address indexed attester, bytes32 uid, bytes32 indexed schema)
+    // topics[0]=event sig, topics[1]=recipient, topics[2]=attester, topics[3]=schema (indexed)
+    // uid is NON-indexed → lives in log.data (first 32 bytes)
     for (const log of receipt.logs) {
-      if (log.topics[0] === ATTESTED_TOPIC && log.topics[3]) {
-        return log.topics[3]; // schema is topic[3], uid is in data
-      }
-      // UID is typically in the log data as first 32 bytes
+      // uid is non-indexed → in log.data (first 32 bytes); topics[3] is schema (indexed)
       if (log.topics[0] === ATTESTED_TOPIC && log.data && log.data.length >= 66) {
         return '0x' + log.data.slice(2, 66);
       }
