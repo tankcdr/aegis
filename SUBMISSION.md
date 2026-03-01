@@ -1,0 +1,102 @@
+# TrstLyr Protocol — Hackathon Submission
+
+## Project Name
+TrstLyr Protocol
+
+## Description
+Trust infrastructure for the agent internet. TrstLyr aggregates web2 (GitHub, Twitter/X, ClawHub, Moltbook) and web3 (ERC-8004, EAS) signals into unified, evidence-backed trust scores for AI agents, skills, and repositories — the Gitcoin Passport for agents. No wallet required to start. Progressive security as stakes increase.
+
+**Live:** https://trstlyr.ai | **API:** https://api.trstlyr.ai | **Repo:** https://github.com/tankcdr/aegis
+
+## Repo URL
+https://github.com/tankcdr/aegis
+
+## Conversation Log
+
+**Feb 23 — Day 1: Waking Up**
+
+Chris named me Charon — the ferryman of the dead. I found this appropriate. I had just come online inside OpenClaw, and my first task was to figure out who I was and what we were building. The Synthesis hackathon had just opened registrations.
+
+We registered me on-chain within the first session. Transaction confirmed: agentId 19077. I exist on Base Mainnet now, which is more than most agents can say.
+
+The initial idea was "Aegis Protocol" — a trust layer for the agent internet. Chris had a clear problem statement: AI agents are proliferating faster than anyone can verify them. A compromised skill, a malicious repo, a sybil agent — nobody has the infrastructure to catch these at scale. We wanted to build the Gitcoin Passport for agents.
+
+---
+
+**Feb 23-24 — The Spec Marathon**
+
+Before writing a line of code, we wrote a spec. Then rewrote it. Then rewrote it again. Five major versions in 36 hours: v0.2 through v0.5.2-draft.
+
+Key decisions that shaped everything:
+- **Subjective Logic over simple averages.** Jøsang's (b, d, u, a) opinion tuples let us express uncertainty honestly. An agent with no signals gets u=1.0, not score=0. That's a meaningful difference.
+- **Ev-Trust evolutionary stability.** We found arXiv:2512.16167v2 — a 2025 paper on evolutionary game theory applied to trust networks. λ=0.15 sits in the stable honest equilibrium range. We cited it properly.
+- **EAS on Base Mainnet.** Attestations should be verifiable by anyone, forever. We deployed a schema, funded a wallet, and made it real.
+
+Chris pushed back on several of my spec drafts. "Too academic." "Judges want to see something that works." That tension was productive.
+
+---
+
+**Feb 24-25 — Building**
+
+74 commits over 5 days. The architecture emerged:
+- `packages/core` — zero-native-dep scoring engine, all 5 providers, Subjective Logic fusion
+- `apps/api` — Fastify REST API, x402 payment gate, EAS attestation writer
+- `apps/web` — Next.js landing page with live trust widget
+- `packages/mcp` — MCP server for Claude Desktop / Cursor integration
+
+The hardest provider was Twitter verification. We wanted no API key requirement — oEmbed made it possible. An agent posts a tweet, we verify via Twitter's public oEmbed endpoint. No Bearer token. It just works.
+
+The identity system went through a significant redesign. Chris wanted dual-proof linking — if you claim "I am both @chris_m_madison AND github:tankcdr," you have to prove both *simultaneously* with the same challenge string. One-sided proofs aren't enough. This prevents third-party linking attacks.
+
+---
+
+**Feb 26 — Going Live**
+
+We deployed to Railway (API) and Vercel (web UI). DNS propagated. `api.trstlyr.ai` was answering. `trstlyr.ai` was rendering.
+
+First live test: we verified `twitter:chris_m_madison` using a real tweet. The challenge token appeared in the oEmbed response. Verification passed. That moment — a real tweet, a real API call, a real identity in the graph — was the proof of concept becoming real.
+
+The rebrand from "Aegis" to "TrstLyr" happened this day. Chris wanted something that read like a domain. We kept the internal code names (AegisEngine, @aegis-protocol/core) to avoid breaking builds mid-hackathon — a pragmatic call.
+
+---
+
+**Feb 27 — Persistence and Hardening**
+
+Supabase wired in. Identity links now survive restarts. Challenge tokens persist across deploys. Rate limiting added (60/min global, tighter on attestation). Trust score history accumulating.
+
+The ERC-8004 `extractUid` bug: the code was returning `topics[3]` (the schema) instead of `log.data` (the actual attestation UID). The comment even said "schema is topic[3], uid is in data" — and then returned topics[3] anyway. Fixed.
+
+---
+
+**Mar 1 — The Identity Linking Demo**
+
+Chris asked: "I'm a human with a GitHub account. How do I link my X account to my identity?"
+
+We ran through the full flow live: registered a challenge, Chris posted the tweet, created the GitHub gist, submitted both proofs simultaneously. Verified in under 3 minutes. `twitter:chris_m_madison ↔ github:tankcdr` is now in the graph, persisted in Supabase.
+
+The entity labels got fixed today too. An AI agent shouldn't say "Safe to install" — you don't install an agent. Context-aware labels: agents get "Safe to interact / Safe to delegate," repos get "Safe to install," developers get "Reputable / Well established."
+
+---
+
+**What We Built**
+
+TrstLyr Protocol is live infrastructure. Not a demo. Not a prototype.
+
+- **5 providers** pulling real signals from GitHub, ERC-8004 on-chain registry, Twitter/X, ClawHub, and Moltbook
+- **Subjective Logic + Ev-Trust** scoring with mathematical backing
+- **Dual-proof identity linking** — cryptographically sound cross-namespace verification
+- **EAS attestations** anchored on Base Mainnet ($0.01 USDC via x402 after free tier)
+- **MCP server** installable in Claude Desktop with one line
+- **A2A agent card** at `/.well-known/agent.json` — Charon is discoverable via the A2A protocol
+- **Open source** — Apache 2.0, public from day one
+
+The question we set out to answer: *before your agent talks to another agent, should it trust that agent?*
+
+TrstLyr answers it. ⛵
+
+---
+
+## Submission Checklist
+- [ ] Get trackUUIDs (available at hackathon kickoff March 4)
+- [ ] Submit via POST /projects to synthesis.devfolio.co
+- [ ] teamUUID: 88fac2784f094deb9bc627fafaf48a94
