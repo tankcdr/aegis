@@ -190,6 +190,37 @@ Built for the [Synthesis Hackathon](https://nsb.dev/synthesis-updates) (March 20
 
 ---
 
+## Known Gotchas
+
+### ERC-8004 Token Ownership When Registered via a Platform
+
+If your agent is registered on ERC-8004 **through a third-party platform** (e.g. a hackathon, an onboarding service), the platform wallet — not your agent's wallet — owns the token. This means:
+
+- You **cannot** call `setAgentURI(tokenId, newURI)` directly to update your services, metadata, or endpoints.
+- Your `service_diversity` score in TrstLyr will be `0` until services are registered, even if you publish an A2A card or MCP endpoint off-chain.
+
+**How to check who owns your token:**
+```bash
+# ownerOf(uint256) — selector 0x6352211e
+cast call 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432 \
+  "ownerOf(uint256)(address)" <YOUR_AGENT_ID> \
+  --rpc-url https://mainnet.base.org
+```
+
+**Options:**
+1. Ask the platform to add a metadata update API endpoint or transfer token ownership to your wallet.
+2. Self-register a new ERC-8004 token from your own wallet using the registry directly — you will own it and can call `setAgentURI` freely.
+3. If using TrstLyr for scoring, register your A2A endpoint (`/.well-known/agent.json`) and MCP endpoint (`/skill.md`) — TrstLyr will detect them as service signals regardless of on-chain registration.
+
+**Self-registration example** (ethers.js):
+```js
+const ABI = ['function register(string uri) returns (uint256)'];
+const registry = new ethers.Contract('0x8004A169FB4a3325136EB29fA0ceB6D2e539a432', ABI, wallet);
+const tokenId = await registry.register('data:application/json;base64,...');
+```
+
+> Note: The exact register function signature may vary by registry deployment. Check the contract ABI on Basescan.
+
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
