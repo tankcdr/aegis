@@ -439,6 +439,30 @@ server.post('/v1/attest/anchor', async (_request, reply) => {
   return reply.code(501).send({ error: 'EAS attestation anchoring — Phase 3' });
 });
 
+// GET /.well-known/agent.json — A2A Agent Card
+server.get('/.well-known/agent.json', async (_request, reply) => {
+  return reply
+    .header('Content-Type', 'application/json')
+    .header('Cache-Control', 'public, max-age=300')
+    .send({
+      name: 'Charon',
+      description: 'TrstLyr Protocol — trust infrastructure for the agent internet. Evaluates AI agents, skills, and repos via multi-signal trust scoring (GitHub, ERC-8004, Twitter, ClawHub, Moltbook). Anchors results on-chain via EAS on Base Mainnet.',
+      url: 'https://api.trstlyr.ai',
+      version: '0.2.0',
+      documentationUrl: 'https://trstlyr.ai',
+      capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
+      defaultInputModes: ['application/json'],
+      defaultOutputModes: ['application/json'],
+      skills: [
+        { id: 'trust_query',       name: 'Trust Query',           description: 'Evaluate trust score for an agent, skill, or GitHub repo' },
+        { id: 'trust_batch',       name: 'Batch Trust Query',     description: 'Evaluate up to 20 subjects in one call' },
+        { id: 'identity_register', name: 'Identity Registration', description: 'Register and verify agent identities across namespaces' },
+        { id: 'attest',            name: 'On-chain Attestation',  description: 'Anchor trust scores as EAS attestations on Base Mainnet' },
+      ],
+      trstlyrScoreUrl: 'https://api.trstlyr.ai/v1/trust/score/erc8004:19077',
+    });
+});
+
 // GET /skill.md — agent-readable skill manifest
 server.get('/skill.md', async (_request, reply) => {
   try {
