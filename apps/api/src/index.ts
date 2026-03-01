@@ -53,6 +53,17 @@ await server.register(rateLimit, {
   }),
 });
 
+// ── Security headers ──────────────────────────────────────────────────────────
+server.addHook('onSend', (_req, reply, _payload, done) => {
+  reply.header('X-Content-Type-Options', 'nosniff');
+  reply.header('X-Frame-Options', 'DENY');
+  reply.header('X-XSS-Protection', '1; mode=block');
+  reply.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  reply.header('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+  reply.header('Referrer-Policy', 'no-referrer');
+  done();
+});
+
 // ── CORS ──────────────────────────────────────────────────────────────────────
 await server.register(cors, {
   origin: [
@@ -125,11 +136,16 @@ server.post('/v1/trust/batch', async (request, reply) => {
     if (!validateSubjectParts(s.namespace ?? '', s.id ?? '', reply)) return;
   }
 
-  // Fan out in parallel — cache means repeated subjects are free
+  // Fan out in parallel with per-subject timeout — cache means repeated subjects are free
+  const BATCH_SUBJECT_TIMEOUT_MS = 15_000;
   const results = await Promise.allSettled(
-    body.subjects.map(subject =>
-      engine.query({ subject: { type: 'agent', ...subject }, context: body.context }),
-    ),
+    body.subjects.map(subject => {
+      const queryPromise = engine.query({ subject: { type: 'agent', ...subject }, context: body.context });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('subject query timeout')), BATCH_SUBJECT_TIMEOUT_MS).unref(),
+      );
+      return Promise.race([queryPromise, timeoutPromise]);
+    }),
   );
 
   return reply.send({

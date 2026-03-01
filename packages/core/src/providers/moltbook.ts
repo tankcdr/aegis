@@ -156,7 +156,8 @@ export class MoltbookProvider implements Provider {
         error_rate_1h: 0,
         dependencies: { 'www.moltbook.com': status },
       };
-    } catch {
+    } catch (err: unknown) {
+      console.warn(`[${"moltbook"}] health check failed:`, err instanceof Error ? err.message : err);
       return {
         status: 'unhealthy',
         last_check: lastCheck,

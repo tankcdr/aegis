@@ -15,6 +15,10 @@ export class TrustCache {
 
   constructor(defaultTtlSeconds = 300) {
     this.defaultTtl = defaultTtlSeconds;
+    // Periodically evict expired entries to prevent unbounded memory growth.
+    // unref() so the timer doesn't keep the process alive during tests.
+    const timer = setInterval(() => this.evictExpired(), 60_000);
+    if (typeof timer === 'object' && 'unref' in timer) (timer as NodeJS.Timeout).unref();
   }
 
   /** Return a cached result if it exists and hasn't expired. */

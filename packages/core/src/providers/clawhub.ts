@@ -107,7 +107,8 @@ export class ClawHubProvider implements Provider {
         error_rate_1h: 0,
         dependencies: { 'clawhub.ai': res.ok ? 'healthy' : 'degraded' },
       };
-    } catch {
+    } catch (err: unknown) {
+      console.warn(`[${"clawhub"}] health check failed:`, err instanceof Error ? err.message : err);
       return {
         status: 'unhealthy',
         last_check: lastCheck,
@@ -288,7 +289,7 @@ export class ClawHubProvider implements Provider {
   private async fetchAuthorSkills(handle: string): Promise<SkillItem[]> {
     const url = `${CLAWHUB_API}/skills?author=${encodeURIComponent(handle)}&limit=50`;
     let body: SkillListResponse;
-    try { body = await providerFetch<SkillListResponse>(url); } catch { return []; }
+    try { body = await providerFetch<SkillListResponse>(url); } catch (err: unknown) { console.warn(`[provider] fetch failed, returning empty:`, err instanceof Error ? err.message : err); return []; }
     return body.items ?? [];
   }
 }

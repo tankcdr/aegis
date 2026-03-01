@@ -205,7 +205,8 @@ export class ERC8004Provider implements Provider {
         error_rate_1h: 0,
         dependencies: { 'base-mainnet-rpc': 'healthy' },
       };
-    } catch {
+    } catch (err: unknown) {
+      console.warn(`[${"erc8004"}] health check failed:`, err instanceof Error ? err.message : err);
       return {
         status: 'unhealthy',
         last_check: lastCheck,
@@ -243,7 +244,8 @@ export class ERC8004Provider implements Provider {
       }
 
       return linked;
-    } catch {
+    } catch (err: unknown) {
+      console.warn(`[provider] fetch failed, returning empty:`, err instanceof Error ? err.message : err);
       return [];
     }
   }

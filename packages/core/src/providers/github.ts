@@ -246,7 +246,8 @@ export class GitHubProvider implements Provider {
         error_rate_1h: 0,
         dependencies: { 'api.github.com': status },
       };
-    } catch {
+    } catch (err: unknown) {
+      console.warn(`[${"github"}] health check failed:`, err instanceof Error ? err.message : err);
       return {
         status: 'unhealthy',
         last_check: lastCheck,
