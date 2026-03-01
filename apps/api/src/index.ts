@@ -197,6 +197,16 @@ server.get<{ Params: { subject: string }; Querystring: { limit?: string } }>(
   },
 );
 
+// XML escape helper — prevents XSS in SVG string templates
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 // GET /v1/trust/score/:subject/badge.svg — embeddable SVG trust badge
 server.get<{ Params: { subject: string } }>(
   '/v1/trust/score/:subject/badge.svg',
@@ -215,8 +225,8 @@ server.get<{ Params: { subject: string } }>(
       result.risk_level === 'medium'  ? '#dfb317' :
       result.risk_level === 'high'    ? '#e05d44' : '#c0392b';
 
-    const label      = 'trstlyr';
-    const value      = `${score}%`;
+    const label      = escapeXml('trstlyr');
+    const value      = escapeXml(`${score}%`);
     const labelW     = 62;
     const valueW     = 46;
     const totalW     = labelW + valueW;
