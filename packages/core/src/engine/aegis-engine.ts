@@ -1,3 +1,4 @@
+import { TTL, HTTP, FRAUD } from '../constants.js';
 // AegisEngine — the embeddable trust engine (SPEC §4)
 //
 // Embedding example (OpenClaw, custom platform, etc.):
@@ -55,8 +56,8 @@ export class AegisEngine {
         ? config.providers
         : buildDefaultProviders();
 
-    this.cache = new TrustCache(300);
-    this.providerTimeout = config.scoring?.providerTimeout ?? 10_000;
+    this.cache = new TrustCache(TTL.DEFAULT);
+    this.providerTimeout = config.scoring?.providerTimeout ?? HTTP.TIMEOUT_MS;
 
     // EAS attestation writer — optional, requires AEGIS_ATTESTATION_PRIVATE_KEY
     this.attestationEnabled = config.attestation?.enabled ?? false;
@@ -185,7 +186,7 @@ export class AegisEngine {
     }
 
     for (const signal of allSignals) {
-      if (signal.score < 0.1 && signal.confidence > 0.7) {
+      if (signal.score < FRAUD.LOW_SCORE && signal.confidence > FRAUD.HIGH_CONFIDENCE) {
         fraudSignals.push({
           type: 'low_trust_signal',
           severity: 'medium',
@@ -212,8 +213,8 @@ export class AegisEngine {
     // Derive effective TTL from minimum signal TTL (default 300s)
     const ttl =
       allSignals.length > 0
-        ? Math.min(...allSignals.map((s) => s.ttl ?? 300))
-        : 300;
+        ? Math.min(...allSignals.map((s) => s.ttl ?? TTL.DEFAULT))
+        : TTL.DEFAULT;
 
     const entityType = detectEntityType(subject.namespace, subject.id);
 

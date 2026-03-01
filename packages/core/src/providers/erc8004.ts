@@ -1,4 +1,5 @@
 import { providerFetch } from './http.js';
+import { ERC8004, TTL } from '../constants.js';
 // ERC-8004 Provider — on-chain agent identity signals (SPEC §9.2)
 //
 // Reads from the ERC-8004 Identity Registry on Base Mainnet.
@@ -111,10 +112,10 @@ export class ERC8004Provider implements Provider {
       const hasSupportedTrust = (registration.supportedTrust?.length ?? 0) > 0;
 
       const completenessScore =
-        (isActive        ? 0.40 : 0.00) +
-        (hasName         ? 0.20 : 0.00) +
-        (hasDescription  ? 0.25 : 0.00) +
-        (hasSupportedTrust ? 0.15 : 0.00);
+        (isActive        ? ERC8004.REGISTRATION.ACTIVE_WEIGHT      : 0) +
+        (hasName         ? ERC8004.REGISTRATION.NAME_WEIGHT        : 0) +
+        (hasDescription  ? ERC8004.REGISTRATION.DESCRIPTION_WEIGHT : 0) +
+        (hasSupportedTrust ? ERC8004.REGISTRATION.TRUST_WEIGHT     : 0);
 
       signals.push({
         provider: 'erc8004',
@@ -144,13 +145,13 @@ export class ERC8004Provider implements Provider {
       const hasEmail = serviceNames.some(n => n.includes('email'));
 
       const diversityScore = Math.min(
-        (hasA2A   ? 0.25 : 0) +
-        (hasMCP   ? 0.25 : 0) +
-        (hasENS   ? 0.15 : 0) +
-        (hasDID   ? 0.15 : 0) +
-        (hasWeb   ? 0.10 : 0) +
-        (hasEmail ? 0.10 : 0) +
-        Math.min(services.length / 10, 1.0) * 0.10,
+        (hasA2A   ? ERC8004.SERVICE_DIVERSITY.A2A_WEIGHT   : 0) +
+        (hasMCP   ? ERC8004.SERVICE_DIVERSITY.MCP_WEIGHT   : 0) +
+        (hasENS   ? ERC8004.SERVICE_DIVERSITY.ENS_WEIGHT   : 0) +
+        (hasDID   ? ERC8004.SERVICE_DIVERSITY.DID_WEIGHT   : 0) +
+        (hasWeb   ? ERC8004.SERVICE_DIVERSITY.WEB_WEIGHT   : 0) +
+        (hasEmail ? ERC8004.SERVICE_DIVERSITY.EMAIL_WEIGHT : 0) +
+        Math.min(services.length / ERC8004.SERVICE_DIVERSITY.COUNT_MAX, 1.0) * ERC8004.SERVICE_DIVERSITY.COUNT_WEIGHT,
         1.0,
       );
 
@@ -159,7 +160,7 @@ export class ERC8004Provider implements Provider {
         provider: 'erc8004',
         signal_type: 'service_diversity',
         score: services.length > 0 ? diversityScore : 0,
-        confidence: services.length > 0 ? 0.9 : 0.5,
+        confidence: services.length > 0 ? ERC8004.SERVICE_DIVERSITY.WITH_SERVICES_CONFIDENCE : ERC8004.SERVICE_DIVERSITY.WITHOUT_SERVICES_CONFIDENCE,
         evidence: {
           service_count: services.length,
           services: services.map(s => s.name),

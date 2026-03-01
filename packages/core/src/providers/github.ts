@@ -4,6 +4,8 @@
 //   • author_reputation — GitHub user credibility (account age, followers, repos)
 //   • repo_health       — Repository quality (stars, recency, issues, license)
 
+import { providerFetch, providerFetchText, HttpError } from './http.js';
+import { GITHUB, TTL } from '../constants.js';
 import type {
   EvaluateRequest,
   HealthStatus,
@@ -107,12 +109,12 @@ export class GitHubProvider implements Provider {
       const ageDays =
         (Date.now() - new Date(user.created_at).getTime()) / 86_400_000;
 
-      const followerScore = Math.min(user.followers / 1000, 1.0) * 0.3;
-      const repoScore = Math.min(user.public_repos / 50, 1.0) * 0.2;
-      const ageScore = Math.min(ageDays / 730, 1.0) * 0.3;
-      const hireableBonus = user.hireable ? 0.1 : 0.0;
-      const blogBonus = user.blog ? 0.05 : 0.0;
-      const twitterBonus = user.twitter_username ? 0.05 : 0.0;
+      const followerScore = Math.min(user.followers / GITHUB.AUTHOR.FOLLOWER_MAX, 1.0) * GITHUB.AUTHOR.FOLLOWER_WEIGHT;
+      const repoScore = Math.min(user.public_repos / GITHUB.AUTHOR.REPO_MAX, 1.0) * GITHUB.AUTHOR.REPO_WEIGHT;
+      const ageScore = Math.min(ageDays / GITHUB.AUTHOR.AGE_MAX_DAYS, 1.0) * GITHUB.AUTHOR.AGE_WEIGHT;
+      const hireableBonus = user.hireable ? GITHUB.AUTHOR.HIREABLE_BONUS : 0.0;
+      const blogBonus = user.blog ? GITHUB.AUTHOR.BLOG_BONUS : 0.0;
+      const twitterBonus = user.twitter_username ? GITHUB.AUTHOR.TWITTER_BONUS : 0.0;
 
       const score = Math.min(
         followerScore + repoScore + ageScore + hireableBonus + blogBonus + twitterBonus,

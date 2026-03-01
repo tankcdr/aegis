@@ -1,4 +1,5 @@
 import { providerFetch, providerFetchText, HttpError } from './http.js';
+import { CLAWHUB, TTL } from '../constants.js';
 // ClawHub Provider — skill adoption and author portfolio signals (SPEC §6)
 //
 // ClawHub is the OpenClaw skill marketplace (clawhub.ai).
@@ -133,12 +134,12 @@ export class ClawHubProvider implements Provider {
       const flagged = resp.moderation != null && typeof resp.moderation === 'object';
 
       // Score components
-      const currentInstallScore = Math.min(s.installsCurrent / 200, 1.0) * 0.35;
-      const starScore           = Math.min(s.stars / 100, 1.0) * 0.25;
-      const downloadScore       = Math.min(s.downloads / 5000, 1.0) * 0.15;
-      const commentScore        = Math.min(s.comments / 20, 1.0) * 0.10;
-      const versionScore        = Math.min(s.versions / 5, 1.0) * 0.05;
-      const recencyScore        = Math.max(0, 1 - daysSinceUpdate / 180) * 0.10;
+      const currentInstallScore = Math.min(s.installsCurrent / CLAWHUB.SKILL.INSTALL_MAX, 1.0) * CLAWHUB.SKILL.INSTALL_WEIGHT;
+      const starScore           = Math.min(s.stars / CLAWHUB.SKILL.STAR_MAX, 1.0) * CLAWHUB.SKILL.STAR_WEIGHT;
+      const downloadScore       = Math.min(s.downloads / CLAWHUB.SKILL.DOWNLOAD_MAX, 1.0) * CLAWHUB.SKILL.DOWNLOAD_WEIGHT;
+      const commentScore        = Math.min(s.comments / CLAWHUB.SKILL.COMMENT_MAX, 1.0) * CLAWHUB.SKILL.COMMENT_WEIGHT;
+      const versionScore        = Math.min(s.versions / CLAWHUB.SKILL.VERSION_MAX, 1.0) * CLAWHUB.SKILL.VERSION_WEIGHT;
+      const recencyScore        = Math.max(0, 1 - daysSinceUpdate / CLAWHUB.SKILL.RECENCY_MAX_DAYS) * CLAWHUB.SKILL.RECENCY_WEIGHT;
 
       const score = flagged ? 0.0 : Math.min(
         currentInstallScore + starScore + downloadScore + commentScore + versionScore + recencyScore,
@@ -146,8 +147,8 @@ export class ClawHubProvider implements Provider {
       );
 
       const confidence = flagged
-        ? 0.95
-        : Math.min(0.40 + s.installsCurrent / 400, 0.92);
+        ? CLAWHUB.SKILL.VERIFIED_CONFIDENCE
+        : Math.min(CLAWHUB.SKILL.BASE_CONFIDENCE + s.installsCurrent / CLAWHUB.SKILL.INSTALL_CONFIDENCE_DIVISOR, CLAWHUB.SKILL.CONFIDENCE_MAX);
 
       return [{
         provider: 'clawhub',
@@ -207,19 +208,19 @@ export class ClawHubProvider implements Provider {
       const maxInstalls = Math.max(...skills.map(s => s.stats.installsCurrent));
 
       // Score components
-      const portfolioSizeScore  = Math.min(skillCount / 10, 1.0) * 0.15;
-      const totalInstallScore   = Math.min(totalCurrentInstalls / 1000, 1.0) * 0.35;
-      const starScore           = Math.min(totalStars / 200, 1.0) * 0.20;
-      const downloadScore       = Math.min(totalDownloads / 10_000, 1.0) * 0.15;
-      const breakoutScore       = Math.min(maxInstalls / 500, 1.0) * 0.10;
-      const engagementScore     = Math.min(totalComments / 30, 1.0) * 0.05;
+      const portfolioSizeScore  = Math.min(skillCount / CLAWHUB.AUTHOR.PORTFOLIO_MAX, 1.0) * CLAWHUB.AUTHOR.PORTFOLIO_WEIGHT;
+      const totalInstallScore   = Math.min(totalCurrentInstalls / CLAWHUB.AUTHOR.INSTALL_MAX, 1.0) * CLAWHUB.AUTHOR.INSTALL_WEIGHT;
+      const starScore           = Math.min(totalStars / CLAWHUB.AUTHOR.STAR_MAX, 1.0) * CLAWHUB.AUTHOR.STAR_WEIGHT;
+      const downloadScore       = Math.min(totalDownloads / CLAWHUB.AUTHOR.DOWNLOAD_MAX, 1.0) * CLAWHUB.AUTHOR.DOWNLOAD_WEIGHT;
+      const breakoutScore       = Math.min(maxInstalls / CLAWHUB.AUTHOR.BREAKOUT_MAX, 1.0) * CLAWHUB.AUTHOR.BREAKOUT_WEIGHT;
+      const engagementScore     = Math.min(totalComments / CLAWHUB.AUTHOR.ENGAGEMENT_MAX, 1.0) * CLAWHUB.AUTHOR.ENGAGEMENT_WEIGHT;
 
       const score = Math.min(
         portfolioSizeScore + totalInstallScore + starScore + downloadScore + breakoutScore + engagementScore,
         1.0,
       );
 
-      const confidence = Math.min(0.40 + totalCurrentInstalls / 2000, 0.90);
+      const confidence = Math.min(CLAWHUB.AUTHOR.BASE_CONFIDENCE + totalCurrentInstalls / CLAWHUB.AUTHOR.CONFIDENCE_DIVISOR, CLAWHUB.AUTHOR.CONFIDENCE_MAX);
 
       // Oldest skill creation date = author tenure
       const oldestSkill = Math.min(...skills.map(s => s.createdAt));

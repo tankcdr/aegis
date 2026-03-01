@@ -1,3 +1,4 @@
+import { EV_TRUST, RISK, SL } from '../constants.js';
 // Scoring engine — Subjective Logic opinion fusion + Ev-Trust adjustment
 // SPEC §7 — Trust Scoring Model
 
@@ -22,7 +23,7 @@ export function signalToOpinion(signal: Signal): Opinion {
     belief: s * c,
     disbelief: (1 - s) * c,
     uncertainty: 1 - c,
-    baseRate: 0.5,
+    baseRate: SL.BASE_RATE,
   };
 }
 
@@ -70,7 +71,7 @@ export function fuseTwo(a: Opinion, b: Opinion): Opinion {
  */
 export function fuseOpinions(opinions: Opinion[]): Opinion {
   if (opinions.length === 0) {
-    return { belief: 0, disbelief: 0, uncertainty: 1, baseRate: 0.5 };
+    return { belief: 0, disbelief: 0, uncertainty: 1, baseRate: SL.BASE_RATE };
   }
   if (opinions.length === 1) return opinions[0]!;
   return opinions.slice(1).reduce((acc, op) => fuseTwo(acc, op), opinions[0]!);
@@ -100,8 +101,8 @@ export function evTrustAdjust(score: number, signals: Signal[]): number {
   const range = Math.max(...scores) - Math.min(...scores);
 
   // Only penalise when disagreement is substantial (> 0.4 range)
-  if (range > 0.4) {
-    const lambda = 0.15;
+  if (range > EV_TRUST.RANGE_THRESHOLD) {
+    const lambda = EV_TRUST.LAMBDA;
     return score * (1 - lambda * range);
   }
 
@@ -114,10 +115,10 @@ export function evTrustAdjust(score: number, signals: Signal[]): number {
  * Map projected trust score to risk level. SPEC §7.7
  */
 export function mapRiskLevel(score: number): RiskLevelResult {
-  if (score >= 0.8) return 'minimal';
-  if (score >= 0.6) return 'low';
-  if (score >= 0.4) return 'medium';
-  if (score >= 0.2) return 'high';
+  if (score >= RISK.MINIMAL) return 'minimal';
+  if (score >= RISK.LOW)     return 'low';
+  if (score >= RISK.MEDIUM)  return 'medium';
+  if (score >= RISK.HIGH)    return 'high';
   return 'critical';
 }
 
