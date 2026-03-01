@@ -56,10 +56,3 @@ jobs:
           cache-from: type=gha
           cache-to:   type=gha,mode=max
 
-      - name: Trigger Railway redeploy
-        run: |
-          npm install -g @railway/cli@latest --silent
-          railway redeploy --service "$RAILWAY_SERVICE_ID" --yes
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
