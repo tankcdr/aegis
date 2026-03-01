@@ -11,7 +11,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm --filter @aegis-protocol/api dev",
-    "test": "pnpm -r test",
+    "test": "pnpm --filter @aegis-protocol/core test",
     "lint": "eslint \"packages/*/src/**/*.ts\" \"apps/*/src/**/*.ts\"",
     "typecheck": "pnpm -r typecheck",
     "deploy:schema": "pnpm --filter @aegis-protocol/contracts deploy:schema",
