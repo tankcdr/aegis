@@ -65,6 +65,7 @@ export function buildPaymentRequired(resource: string, error: string): PaymentRe
 export function extractPayment(request: FastifyRequest): PaymentPayload | null {
   const header = request.headers['x-payment'];
   if (!header || typeof header !== 'string') return null;
+  if (header.length > 4096) throw new Error('X-Payment header exceeds maximum size (4096 bytes)');
   try {
     return JSON.parse(Buffer.from(header, 'base64').toString('utf8')) as PaymentPayload;
   } catch {

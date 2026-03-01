@@ -6,6 +6,7 @@ import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { AegisEngine, identityGraph, issueChallenge, verifyChallenge, getChallenge, importChallenge } from '@aegis-protocol/core';
 import type { Action, Subject } from '@aegis-protocol/core';
+import type { FastifyReply } from 'fastify';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
@@ -83,6 +84,7 @@ server.post('/v1/trust/query', async (request, reply) => {
       example: { subject: { type: 'agent', namespace: 'github', id: 'owner/repo' } },
     });
   }
+  if (!validateSubjectParts(subject.namespace, subject.id, reply)) return;
   const result = await engine.query({ subject, context: body?.context });
   saveScoreHistory({
     subject: result.subject,
@@ -119,6 +121,9 @@ server.post('/v1/trust/batch', async (request, reply) => {
   if (body.subjects.length > 20) {
     return reply.code(400).send({ error: 'Maximum 20 subjects per batch request' });
   }
+  for (const s of body.subjects) {
+    if (!validateSubjectParts(s.namespace ?? '', s.id ?? '', reply)) return;
+  }
 
   // Fan out in parallel — cache means repeated subjects are free
   const results = await Promise.allSettled(
@@ -146,6 +151,7 @@ server.get<{ Params: { subject: string } }>(
   '/v1/trust/score/:subject',
   async (request, reply) => {
     const raw = decodeURIComponent(request.params.subject);
+    if (!validateSubjectString(raw, reply)) return;
     const colonIdx = raw.indexOf(':');
     let namespace: string;
     let id: string;
@@ -178,6 +184,7 @@ server.get<{ Params: { subject: string }; Querystring: { limit?: string } }>(
   '/v1/trust/history/:subject',
   async (request, reply) => {
     const raw     = decodeURIComponent(request.params.subject);
+    if (!validateSubjectString(raw, reply)) return;
     const colonIdx = raw.indexOf(':');
     const namespace = colonIdx > 0 ? raw.slice(0, colonIdx) : 'github';
     const id        = colonIdx > 0 ? raw.slice(colonIdx + 1) : raw;
@@ -209,6 +216,30 @@ function escapeXml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+// Subject validation — prevent oversized inputs
+const MAX_SUBJECT_LEN = 256;
+const MAX_ID_LEN      = 200;
+
+function validateSubjectString(raw: string, reply: FastifyReply): boolean {
+  if (raw.length > MAX_SUBJECT_LEN) {
+    reply.code(400).send({ error: `Subject exceeds maximum length of ${MAX_SUBJECT_LEN} characters` });
+    return false;
+  }
+  return true;
+}
+
+function validateSubjectParts(namespace: string, id: string, reply: FastifyReply): boolean {
+  if (id.length > MAX_ID_LEN) {
+    reply.code(400).send({ error: `Subject id exceeds maximum length of ${MAX_ID_LEN} characters` });
+    return false;
+  }
+  if (namespace.length > 32) {
+    reply.code(400).send({ error: 'Subject namespace exceeds maximum length of 32 characters' });
+    return false;
+  }
+  return true;
 }
 
 // GET /v1/trust/score/:subject/badge.svg — embeddable SVG trust badge
