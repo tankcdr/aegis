@@ -1,3 +1,4 @@
+import { providerFetch } from './http.js';
 // ERC-8004 Provider — on-chain agent identity signals (SPEC §9.2)
 //
 // Reads from the ERC-8004 Identity Registry on Base Mainnet.

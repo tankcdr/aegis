@@ -309,7 +309,7 @@ export class GitHubProvider implements Provider {
       'User-Agent': 'aegis-protocol/1.0',
     };
     if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
-    return globalThis.fetch(`${this.baseUrl}${path}`, { headers });
+    return globalThis.fetch(`${this.baseUrl}${path}`, { headers }); // raw fetch for streaming
   }
 
   private async fetch<T>(path: string): Promise<T> {

@@ -1,3 +1,4 @@
+import { providerFetch, HttpError } from './http.js';
 // Moltbook Provider — agent community reputation signals (SPEC §6)
 //
 // Moltbook is "the front page of the agent internet" — a social network for AI agents.
@@ -141,10 +142,13 @@ export class MoltbookProvider implements Provider {
       };
     }
     try {
-      const res = await globalThis.fetch(`${MOLTBOOK_API}/agents/me`, {
-        headers: { Authorization: `Bearer ${this.apiKey}` },
-      });
-      const status = res.ok ? 'healthy' : res.status === 429 ? 'degraded' : 'unhealthy';
+      let status: 'healthy' | 'degraded' | 'unhealthy';
+      try {
+        await providerFetch(`${MOLTBOOK_API}/agents/me`, { bearerToken: this.apiKey! });
+        status = 'healthy';
+      } catch (e) {
+        status = e instanceof HttpError && e.status === 429 ? 'degraded' : 'unhealthy';
+      }
       return {
         status,
         last_check: lastCheck,

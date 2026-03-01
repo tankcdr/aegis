@@ -1,3 +1,4 @@
+import { providerFetch, HttpError } from './http.js';
 // Twitter/X Provider — social presence signals (SPEC §6)
 //
 // Uses Twitter API v2. Requires TWITTER_BEARER_TOKEN env var.
@@ -156,42 +157,36 @@ export class TwitterProvider implements Provider {
         dependencies: { 'api.twitter.com': 'unhealthy' },
       };
     }
+    let status: 'healthy' | 'degraded' | 'unhealthy';
     try {
-      const res = await globalThis.fetch(`${TWITTER_API}/tweets/search/recent?query=hello&max_results=10`, {
-        headers: { Authorization: `Bearer ${this.bearerToken}` },
-      });
-      const status = res.ok ? 'healthy' : res.status === 429 ? 'degraded' : 'unhealthy';
-      return {
-        status,
-        last_check: lastCheck,
-        avg_response_ms: 0,
-        error_rate_1h: 0,
-        dependencies: { 'api.twitter.com': status },
-      };
-    } catch {
-      return {
-        status: 'unhealthy',
-        last_check: lastCheck,
-        avg_response_ms: 0,
-        error_rate_1h: 1,
-        dependencies: { 'api.twitter.com': 'unhealthy' },
-      };
+      await providerFetch(`${TWITTER_API}/tweets/search/recent?query=hello&max_results=10`, { bearerToken: this.bearerToken! });
+      status = 'healthy';
+    } catch (e) {
+      status = e instanceof HttpError && e.status === 429 ? 'degraded' : 'unhealthy';
     }
+    return {
+      status,
+      last_check: lastCheck,
+      avg_response_ms: 0,
+      error_rate_1h: 0,
+      dependencies: { 'api.twitter.com': status },
+    };
   }
 
   private async fetchUser(username: string): Promise<TwitterUser> {
     const fields = 'created_at,description,verified,public_metrics,entities';
     const url = `${TWITTER_API}/users/by/username/${encodeURIComponent(username)}?user.fields=${fields}`;
 
-    const res = await globalThis.fetch(url, {
-      headers: { Authorization: `Bearer ${this.bearerToken!}` },
-    });
-
-    if (res.status === 404) throw new Error(`404: @${username} not found`);
-    if (res.status === 429) throw new Error('Rate limited by Twitter API');
-    if (!res.ok) throw new Error(`Twitter API error ${res.status}`);
-
-    const body = await res.json() as TwitterUserResponse;
+    let body: TwitterUserResponse;
+    try {
+      body = await providerFetch<TwitterUserResponse>(url, { bearerToken: this.bearerToken! });
+    } catch (e) {
+      if (e instanceof HttpError) {
+        if (e.status === 404) throw new Error(`404: @${username} not found`);
+        if (e.status === 429) throw new Error('Rate limited by Twitter API');
+      }
+      throw e;
+    }
     if (body.errors?.length) throw new Error(body.errors[0]!.detail);
     if (!body.data) throw new Error(`No data returned for @${username}`);
 

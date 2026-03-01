@@ -1,3 +1,4 @@
+import { providerFetch, providerFetchText, HttpError } from './http.js';
 // ClawHub Provider — skill adoption and author portfolio signals (SPEC §6)
 //
 // ClawHub is the OpenClaw skill marketplace (clawhub.ai).
@@ -285,10 +286,8 @@ export class ClawHubProvider implements Provider {
 
   private async fetchAuthorSkills(handle: string): Promise<SkillItem[]> {
     const url = `${CLAWHUB_API}/skills?author=${encodeURIComponent(handle)}&limit=50`;
-    const res = await globalThis.fetch(url);
-    if (res.status === 404) return [];
-    if (!res.ok) throw new Error(`ClawHub API error ${res.status}`);
-    const body = await res.json() as SkillListResponse;
+    let body: SkillListResponse;
+    try { body = await providerFetch<SkillListResponse>(url); } catch { return []; }
     return body.items ?? [];
   }
 }
