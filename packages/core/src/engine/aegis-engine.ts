@@ -44,6 +44,8 @@ export class AegisEngine {
   private readonly providerTimeout: number;
   private readonly easWriter: EASWriter | null;
   private readonly attestationEnabled: boolean;
+  /** In-flight queries — deduplicates simultaneous requests for the same subject */
+  private readonly inFlight = new Map<string, Promise<TrustResult>>();
 
   constructor(config: AegisConfig = {}) {
     // Build default provider set based on available env vars
@@ -72,6 +74,19 @@ export class AegisEngine {
     // Check cache first
     const cached = this.cache.get(subjectKey);
     if (cached) return cached;
+
+    // Deduplicate simultaneous in-flight queries for the same subject
+    const existing = this.inFlight.get(subjectKey);
+    if (existing) return existing;
+
+    const promise = this._evaluate(request, subjectKey);
+    this.inFlight.set(subjectKey, promise);
+    promise.finally(() => this.inFlight.delete(subjectKey));
+    return promise;
+  }
+
+  private async _evaluate(request: EvaluateRequest, subjectKey: string): Promise<TrustResult> {
+    const { subject, context } = request;
 
     // Resolve to all linked identifiers via the identity graph
     const identity = await resolveIdentity(subject);
