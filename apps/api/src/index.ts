@@ -33,33 +33,22 @@ if (!easSchemaUid) {
 const engine = new AegisEngine();
 
 // ── Server ────────────────────────────────────────────────────────────────────
-// Trust proxy headers only from Railway's internal network (set via env or default)
-const TRUSTED_PROXY_CIDRS = (process.env['TRUSTED_PROXIES'] ?? '').split(',').map(s => s.trim()).filter(Boolean);
-
-function isTrustedProxy(ip: string): boolean {
-  if (TRUSTED_PROXY_CIDRS.length === 0) return false;
-  return TRUSTED_PROXY_CIDRS.some(cidr => ip.startsWith(cidr));
-}
-
-function getRealIp(req: { ip: string; headers: Record<string, string | string[] | undefined> }): string {
-  const socketIp = req.ip;
-  if (isTrustedProxy(socketIp)) {
-    // Only honour the header when the connection comes from a trusted proxy
-    const forwarded = req.headers['x-forwarded-for'];
-    const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(',')[0]?.trim();
-    if (first) return first;
-  }
-  return socketIp;
-}
-
-const server = Fastify({ logger: process.env['NODE_ENV'] !== 'test' });
+// trustProxy: Railway sits exactly 1 hop in front of us.
+// Fastify removes the rightmost (Railway-added) entry from X-Forwarded-For and
+// returns the next one as req.ip — preventing clients from spoofing by prepending
+// fake IPs, since Railway always appends the real socket IP at the right.
+const PROXY_HOPS = parseInt(process.env['TRUSTED_PROXY_HOPS'] ?? '1', 10);
+const server = Fastify({
+  logger: process.env['NODE_ENV'] !== 'test',
+  trustProxy: PROXY_HOPS,
+});
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 await server.register(rateLimit, {
   global: true,
   max: 60,               // 60 req/min per IP — baseline
   timeWindow: '1 minute',
-  keyGenerator: (req) => getRealIp(req as any),
+  keyGenerator: (req) => req.ip,
   errorResponseBuilder: (_req, context) => ({
     error: 'Rate limit exceeded',
     limit: context.max,
