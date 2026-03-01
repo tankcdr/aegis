@@ -12,12 +12,21 @@
     "build": "pnpm -r build",
     "dev": "pnpm --filter @aegis-protocol/api dev",
     "test": "pnpm -r test",
-    "lint": "pnpm -r lint",
+    "lint": "eslint \"packages/*/src/**/*.ts\" \"apps/*/src/**/*.ts\"",
     "typecheck": "pnpm -r typecheck",
-    "deploy:schema": "pnpm --filter @aegis-protocol/contracts deploy:schema"
+    "deploy:schema": "pnpm --filter @aegis-protocol/contracts deploy:schema",
+    "format": "prettier --write \"packages/*/src/**/*.ts\" \"apps/*/src/**/*.ts\"",
+    "format:check": "prettier --check \"packages/*/src/**/*.ts\" \"apps/*/src/**/*.ts\""
   },
   "workspaces": [
     "packages/*",
     "contracts"
-  ]
+  ],
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "eslint": "^10.0.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1"
+  }
 }

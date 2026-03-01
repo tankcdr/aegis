@@ -26,10 +26,12 @@ function resolvePaymentReceiver(): string {
     try {
       return new Wallet(key).address;
     } catch {
-      console.warn('[x402] Invalid AEGIS_ATTESTATION_PRIVATE_KEY — falling back to default address');
+      console.warn('[x402] Invalid AEGIS_ATTESTATION_PRIVATE_KEY — cannot derive payment receiver');
     }
   }
-  return '0xAaa00Fef6CD6a7B41e30c25b8655D599f462Cc43';
+  const fallback = process.env['X402_PAYMENT_RECEIVER'];
+  if (!fallback) throw new Error('X402_PAYMENT_RECEIVER env var is required when AEGIS_ATTESTATION_PRIVATE_KEY is not set');
+  return fallback;
 }
 
 const PAYMENT_RECEIVER = resolvePaymentReceiver();
