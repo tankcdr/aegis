@@ -78,7 +78,7 @@ function formatTrustReport(result: TrustResult, subject: string): string {
     `**Score:** [${scoreBar}] ${result.trust_score.toFixed(1)}%`,
     `**Confidence:** ${(result.confidence * 100).toFixed(1)}%`,
     `**Risk Level:** ${riskEmoji(result.risk_level)} ${result.risk_level.toUpperCase()}`,
-    `**Recommendation:** ${recommendEmoji(result.recommendation)} ${result.recommendation.toUpperCase()}`,
+    `**Recommendation:** ${recommendEmoji(result.recommendation)} ${result.recommendation_label ?? result.recommendation.toUpperCase()}`,
     '',
   ];
 
@@ -203,7 +203,7 @@ server.registerTool(
       `**Subject:** ${subject}`,
       `**Score:** ${result.trust_score.toFixed(1)}% (minimum required: ${min_score.toFixed(1)}%)`,
       `**Risk:** ${riskEmoji(result.risk_level)} ${result.risk_level}`,
-      `**Recommendation:** ${recommendEmoji(result.recommendation)} ${result.recommendation}`,
+      `**Recommendation:** ${recommendEmoji(result.recommendation)} ${result.recommendation_label ?? result.recommendation}`,
       '',
       proceed
         ? `This subject meets the minimum trust threshold. ${result.signals.length} signal(s) collected.`
@@ -294,7 +294,7 @@ server.registerTool(
       `This corresponds to a **${result.risk_level}** risk level.`,
     );
     lines.push('');
-    lines.push(`**Recommendation:** ${recommendEmoji(result.recommendation)} ${result.recommendation.toUpperCase()}`);
+    lines.push(`**Recommendation:** ${recommendEmoji(result.recommendation)} ${result.recommendation_label ?? result.recommendation.toUpperCase()}`);
 
     if (result.fraud_signals.length > 0) {
       lines.push('');

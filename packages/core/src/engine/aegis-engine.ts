@@ -34,6 +34,8 @@ import {
   mapRiskLevel,
   projectScore,
   signalToOpinion,
+  detectEntityType,
+  recommendationLabel,
 } from './scoring.js';
 
 export class AegisEngine {
@@ -102,6 +104,8 @@ export class AegisEngine {
         confidence: 0,
         risk_level: 'critical',
         recommendation: 'deny',
+        entity_type: detectEntityType(subject.namespace, subject.id),
+        recommendation_label: recommendationLabel('deny', detectEntityType(subject.namespace, subject.id)),
         signals: [],
         fraud_signals: [{
           type: 'no_providers',
@@ -196,12 +200,16 @@ export class AegisEngine {
         ? Math.min(...allSignals.map((s) => s.ttl ?? 300))
         : 300;
 
+    const entityType = detectEntityType(subject.namespace, subject.id);
+
     let result: TrustResult = {
       subject: subjectKey,
       trust_score: Math.round(adjustedScore * 10_000) / 100,   // 0-100 scale, 2 dp
       confidence: Math.round((1 - fusedOpinion.uncertainty) * 10_000) / 10_000, // 0-1 scale
       risk_level: riskLevel,
       recommendation,
+      entity_type: entityType,
+      recommendation_label: recommendationLabel(recommendation, entityType),
       signals: allSignals,
       fraud_signals: fraudSignals,
       unresolved,

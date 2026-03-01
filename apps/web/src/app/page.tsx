@@ -12,6 +12,8 @@ interface TrustResult {
   confidence: number;
   risk_level: string | { level: string };
   recommendation: string;
+  entity_type?: string;
+  recommendation_label?: string;
   signals: Signal[];
   evaluated_at: string;
 }
@@ -309,7 +311,7 @@ export default function Home() {
                           <RiskBadge level={riskLevel(result)} />
                         </div>
                         <div className="text-sm font-semibold mb-1" style={{ color }}>
-                          {RECOMMENDATION_LABELS[result.recommendation] ?? result.recommendation.replace(/_/g, ' ')}
+                          {result.recommendation_label ?? RECOMMENDATION_LABELS[result.recommendation] ?? result.recommendation.replace(/_/g, ' ')}
                         </div>
                         <div className="text-xs text-slate-500 mb-1">
                           Score confidence: <span className="text-slate-300">{Math.round(result.confidence * 100)}%</span>

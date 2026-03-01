@@ -11,6 +11,8 @@ export {
   mapRiskLevel,
   projectScore,
   signalToOpinion,
+  detectEntityType,
+  recommendationLabel,
 } from './engine/index.js';
 
 // ── Providers ────────────────────────────────────────────────────────────────
@@ -49,6 +51,7 @@ export type {
   Opinion,
   Provider,
   ProviderMetadata,
+  EntityType,
   RecommendationType,
   RiskLevel,
   RiskLevelResult,

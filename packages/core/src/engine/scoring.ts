@@ -2,6 +2,7 @@
 // SPEC §7 — Trust Scoring Model
 
 import type {
+  EntityType,
   Opinion,
   RecommendationType,
   RiskLevelResult,
@@ -160,4 +161,88 @@ export function applyContextMultiplier(
   };
 
   return escalation[riskLevel];
+}
+
+// ─── Entity Type Detection ────────────────────────────────────────────────────
+
+
+/**
+ * Detect what kind of entity a subject represents based on namespace + id.
+ * Drives human-readable recommendation labels.
+ */
+export function detectEntityType(namespace: string, id: string): EntityType {
+  switch (namespace) {
+    case 'erc8004':
+    case 'twitter':
+    case 'x':
+    case 'moltbook':
+      return 'agent';
+
+    case 'clawhub':
+      // clawhub:skill/weather → skill; clawhub:author → developer
+      return id.startsWith('skill/') || id.includes('/') ? 'skill' : 'developer';
+
+    case 'github':
+      // github:owner/repo → repo; github:owner → developer
+      return id.includes('/') ? 'repo' : 'developer';
+
+    case 'email':
+    case 'did':
+    case 'ens':
+    case 'wallet':
+    case 'eth':
+      return 'agent';
+
+    default:
+      return 'unknown';
+  }
+}
+
+/**
+ * Map a machine-readable recommendation + entity type to a human-readable label.
+ * Keeps the API stable (recommendation stays as-is) while surfacing context-aware text.
+ */
+export function recommendationLabel(
+  recommendation: RecommendationType,
+  entityType: EntityType,
+): string {
+  const labels: Record<EntityType, Record<RecommendationType, string>> = {
+    agent: {
+      allow:   '✅ Safe to interact',
+      install: '✅ Safe to delegate',
+      review:  '👀 Verify before trusting',
+      caution: '⚠️ Proceed carefully',
+      deny:    '🚫 Do not interact',
+    },
+    repo: {
+      allow:   '✅ Allow',
+      install: '✅ Safe to install',
+      review:  '👀 Review before installing',
+      caution: '⚠️ Use with caution',
+      deny:    '🚫 Do not install',
+    },
+    skill: {
+      allow:   '✅ Allow',
+      install: '✅ Safe to install',
+      review:  '👀 Review before installing',
+      caution: '⚠️ Use with caution',
+      deny:    '🚫 Do not install',
+    },
+    developer: {
+      allow:   '✅ Reputable',
+      install: '✅ Well established',
+      review:  '👀 Verify identity',
+      caution: '⚠️ Low reputation',
+      deny:    '🚫 Avoid',
+    },
+    unknown: {
+      allow:   '✅ Allow',
+      install: '✅ Proceed',
+      review:  '👀 Review',
+      caution: '⚠️ Use with caution',
+      deny:    '🚫 Deny',
+    },
+  };
+
+  return labels[entityType][recommendation];
 }

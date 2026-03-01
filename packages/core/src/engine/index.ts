@@ -9,4 +9,6 @@ export {
   mapRiskLevel,
   projectScore,
   signalToOpinion,
+  detectEntityType,
+  recommendationLabel,
 } from './scoring.js';

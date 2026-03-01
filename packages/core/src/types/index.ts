@@ -46,6 +46,9 @@ export interface Opinion {
 // ─── Trust Result ─────────────────────────────────────────────────────────────
 
 export type RecommendationType = 'allow' | 'install' | 'review' | 'caution' | 'deny';
+
+/** Semantic category of the evaluated subject — drives human-readable label selection. */
+export type EntityType = 'agent' | 'repo' | 'skill' | 'developer' | 'unknown';
 export type RiskLevelResult = 'minimal' | 'low' | 'medium' | 'high' | 'critical';
 
 export interface FraudSignal {
@@ -63,6 +66,8 @@ export interface TrustResult {
   confidence: number;        // 1 - uncertainty
   risk_level: RiskLevelResult;
   recommendation: RecommendationType;
+  entity_type: EntityType;        // What kind of thing is being evaluated
+  recommendation_label: string;   // Human-readable, entity-appropriate label
   signals: Signal[];
   fraud_signals: FraudSignal[];
   unresolved: Array<{ provider: string; reason: string }>;
