@@ -378,6 +378,10 @@ server.post('/v1/identity/verify', async (request, reply) => {
   // Remove from DB — challenge is consumed
   await deletePersistedChallenge(body.challenge_id);
 
+  // Invalidate cache for both subjects so next query picks up new linked signals
+  if (result.registered) engine.invalidate(result.registered);
+  if (result.linked)     engine.invalidate(result.linked);
+
   // Persist to DB — survives restarts
   if (result.registered && result.method) {
     const [fromNs, ...fromIdParts] = result.registered.split(':');
