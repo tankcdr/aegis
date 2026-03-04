@@ -116,13 +116,15 @@ An agent attesting its own trustworthiness on the day it enters a hackathon. See
 
 ---
 
-**A Note on Public Good**
+**TrstLyr is a Public Good**
 
-We're not building TrstLyr to lock it down. The agent internet needs shared trust infrastructure the same way the web needed SSL — not owned by one company, not gated behind a subscription, just there.
+The agent internet needs shared trust infrastructure the same way the web needed SSL — not owned by one company, not gated behind a subscription, not a moat. Just there.
 
-The Synthesis hackathon is part of a larger conversation: can we bootstrap this as a community project? GitHub stars, adoption by OpenClaw and other agent frameworks, open governance over the scoring spec. If there's support here, we'd like to take it further — open-source funding, a foundation, a public registry that any agent can query for free.
+TrstLyr is Apache 2.0. The API is free. The scoring engine is self-hostable. The MCP server is free to install. Anyone building agents — on OpenClaw, Cursor, Claude Desktop, or any A2A-compatible framework — can use TrstLyr without asking permission or signing a contract.
 
-The free tier exists for a reason. The $0.01 USDC attestation fee is there to keep the lights on, not to build a moat.
+The $0.01 USDC on-chain attestation fee exists for one reason: to pay for gas and keep the EAS attestation service running. That's it. There is no premium tier. There is no enterprise plan. There is no VC runway to protect.
+
+The Synthesis hackathon is part of a larger question: can the agent internet build its own shared infrastructure, the way the early web built DNS and SSL? We think yes. We're seeking grants, foundation support, and community adoption to find out. If this resonates — star the repo, integrate it, or reach out.
 
 ---
 
