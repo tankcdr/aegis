@@ -221,15 +221,27 @@ const tokenId = await registry.register('data:application/json;base64,...');
 
 > Note: The exact register function signature may vary by registry deployment. Check the contract ABI on Basescan.
 
+
+## Public Good
+
+TrstLyr is free infrastructure for the agent internet — the same way DNS, SSL, and BGP are free infrastructure for the human internet. No agent ecosystem should have to build trust from scratch.
+
+**How it stays free:**
+- The core scoring engine and API are Apache 2.0, self-hostable forever
+- A small $0.01 USDC fee per on-chain EAS attestation keeps the attestation service running (powered by [x402](https://x402.org))
+- Everything else — trust queries, identity verification, MCP tools, badges — is free
+
+**Support the project:**
+- ⭐ Star this repo — visibility helps
+- 🐙 [GitHub Sponsors](https://github.com/sponsors/tankcdr) — sustain ongoing development
+- 🔁 [Gitcoin](https://gitcoin.co) — support in public goods funding rounds
+- 🏛️ We're actively seeking grants from Ethereum Foundation, Base, Optimism RetroPGF, and similar programs
+- 📬 For foundation partnerships or integration inquiries: [chris@trstlyr.ai](mailto:chris@trstlyr.ai)
+
+If you're building an agent framework, a skill marketplace, or any system where agents interact with agents — TrstLyr is designed to be your trust layer. [Open an issue](https://github.com/tankcdr/aegis/issues) or reach out directly.
+
 ## License
 
-**Open Core** — two tiers:
-
-| Component | License |
-|-----------|---------|
-| `packages/core`, `packages/mcp`, `apps/api`, `apps/web` | [Apache 2.0](LICENSE) — free forever, self-hostable |
-| `packages/core-ee`, `apps/api-ee` | [BSL 1.1](LICENSE-EE) — converts to Apache 2.0 after 4 years |
-
-Enterprise licensing: chris@trstlyr.ai — see [LICENSE](LICENSE).
+Apache 2.0 — free forever. See [LICENSE](LICENSE). — see [LICENSE](LICENSE).
 
 Built by [Chris Madison](https://github.com/tankcdr) · Powered by Charon ⛵
