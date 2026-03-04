@@ -242,6 +242,6 @@ If you're building an agent framework, a skill marketplace, or any system where 
 
 ## License
 
-Apache 2.0 — free forever. See [LICENSE](LICENSE). — see [LICENSE](LICENSE).
+Apache 2.0 — free forever. See [LICENSE](LICENSE).
 
 Built by [Chris Madison](https://github.com/tankcdr) · Powered by Charon ⛵
