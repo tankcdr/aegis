@@ -1,0 +1,200 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#081828"/>
+      <stop offset="100%" stop-color="#030c14"/>
+    </radialGradient>
+    <radialGradient id="center-bloom" cx="50%" cy="48%" r="35%">
+      <stop offset="0%" stop-color="#0066aa" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#0066aa" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="node-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00aaff" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#0066cc" stop-opacity="0.4"/>
+    </radialGradient>
+    <filter id="glow-sm">
+      <feGaussianBlur stdDeviation="2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-lg">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="text-glow">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#00aaff" opacity="0.4"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#center-bloom)"/>
+
+  <!-- ── TRUST GRAPH NETWORK ─────────────────────────────────── -->
+  <!-- Key: larger nodes = higher trust. Color: blue=trusted, amber=uncertain, red=untrusted -->
+
+  <!-- EDGES — drawn first, behind nodes -->
+  <!-- Verified / trusted edges (bright blue) -->
+  <g stroke="#00aaff" fill="none">
+    <line x1="600" y1="315" x2="420" y2="200" stroke-width="1.5" opacity="0.5"/>
+    <line x1="600" y1="315" x2="780" y2="200" stroke-width="1.5" opacity="0.5"/>
+    <line x1="600" y1="315" x2="600" y2="150" stroke-width="1.8" opacity="0.6"/>
+    <line x1="600" y1="315" x2="380" y2="340" stroke-width="1.2" opacity="0.4"/>
+    <line x1="600" y1="315" x2="820" y2="340" stroke-width="1.2" opacity="0.4"/>
+    <line x1="600" y1="315" x2="520" y2="445" stroke-width="1.0" opacity="0.35"/>
+    <line x1="600" y1="315" x2="680" y2="445" stroke-width="1.0" opacity="0.35"/>
+    <!-- secondary connections -->
+    <line x1="420" y1="200" x2="600" y2="150" stroke-width="1" opacity="0.3"/>
+    <line x1="780" y1="200" x2="600" y2="150" stroke-width="1" opacity="0.3"/>
+    <line x1="420" y1="200" x2="280" y2="255" stroke-width="1" opacity="0.3"/>
+    <line x1="780" y1="200" x2="920" y2="255" stroke-width="1" opacity="0.3"/>
+    <line x1="380" y1="340" x2="280" y2="255" stroke-width="1" opacity="0.25"/>
+    <line x1="820" y1="340" x2="920" y2="255" stroke-width="1" opacity="0.25"/>
+    <line x1="520" y1="445" x2="380" y2="340" stroke-width="0.8" opacity="0.2"/>
+    <line x1="680" y1="445" x2="820" y2="340" stroke-width="0.8" opacity="0.2"/>
+  </g>
+
+  <!-- Uncertain edges (amber) -->
+  <g stroke="#ffaa00" fill="none" stroke-dasharray="4,4">
+    <line x1="380" y1="340" x2="200" y2="420" stroke-width="1" opacity="0.35"/>
+    <line x1="520" y1="445" x2="200" y2="420" stroke-width="0.8" opacity="0.25"/>
+    <line x1="820" y1="340" x2="1000" y2="420" stroke-width="1" opacity="0.35"/>
+    <line x1="680" y1="445" x2="1000" y2="420" stroke-width="0.8" opacity="0.25"/>
+  </g>
+
+  <!-- Untrusted edge (red, dashed) -->
+  <g stroke="#ff4455" fill="none" stroke-dasharray="3,5">
+    <line x1="200" y1="420" x2="120" y2="530" stroke-width="1" opacity="0.4"/>
+    <line x1="1000" y1="420" x2="1080" y2="530" stroke-width="1" opacity="0.4"/>
+  </g>
+
+  <!-- ── NODES ──────────────────────────────────────────────── -->
+
+  <!-- Central hub — TrstLyr itself (largest, brightest) -->
+  <circle cx="600" cy="315" r="22" fill="#003366" stroke="#00aaff" stroke-width="2" opacity="0.95" filter="url(#glow-lg)"/>
+  <circle cx="600" cy="315" r="14" fill="#0055aa" opacity="0.9"/>
+  <circle cx="600" cy="315" r="7" fill="#00ccff" opacity="0.95" filter="url(#glow-sm)"/>
+  <!-- checkmark in center node -->
+  <path d="M594,315 L598,320 L607,311" stroke="#ffffff" stroke-width="2" fill="none" opacity="0.9"/>
+
+  <!-- High-trust nodes (blue, medium-large) -->
+  <!-- Top center - github -->
+  <circle cx="600" cy="150" r="16" fill="#002255" stroke="#00aaff" stroke-width="1.5" opacity="0.9" filter="url(#glow-sm)"/>
+  <circle cx="600" cy="150" r="9" fill="#0066cc" opacity="0.9"/>
+  <text x="600" y="128" font-family="monospace" font-size="10" fill="#00aaff" opacity="0.7" text-anchor="middle">github</text>
+
+  <!-- Top left - erc8004 -->
+  <circle cx="420" cy="200" r="14" fill="#002255" stroke="#00aaff" stroke-width="1.5" opacity="0.85" filter="url(#glow-sm)"/>
+  <circle cx="420" cy="200" r="8" fill="#0066cc" opacity="0.85"/>
+  <text x="420" y="180" font-family="monospace" font-size="10" fill="#00aaff" opacity="0.7" text-anchor="middle">erc8004</text>
+
+  <!-- Top right - twitter -->
+  <circle cx="780" cy="200" r="14" fill="#002255" stroke="#00aaff" stroke-width="1.5" opacity="0.85" filter="url(#glow-sm)"/>
+  <circle cx="780" cy="200" r="8" fill="#0066cc" opacity="0.85"/>
+  <text x="780" y="180" font-family="monospace" font-size="10" fill="#00aaff" opacity="0.7" text-anchor="middle">twitter</text>
+
+  <!-- Mid left - clawhub -->
+  <circle cx="380" cy="340" r="12" fill="#002255" stroke="#00aaff" stroke-width="1" opacity="0.8" filter="url(#glow-sm)"/>
+  <circle cx="380" cy="340" r="7" fill="#0055aa" opacity="0.8"/>
+  <text x="380" y="363" font-family="monospace" font-size="10" fill="#00aaff" opacity="0.65" text-anchor="middle">clawhub</text>
+
+  <!-- Mid right - moltbook -->
+  <circle cx="820" cy="340" r="12" fill="#002255" stroke="#00aaff" stroke-width="1" opacity="0.8" filter="url(#glow-sm)"/>
+  <circle cx="820" cy="340" r="7" fill="#0055aa" opacity="0.8"/>
+  <text x="820" y="363" font-family="monospace" font-size="10" fill="#00aaff" opacity="0.65" text-anchor="middle">moltbook</text>
+
+  <!-- Outer secondary nodes (smaller blue) -->
+  <circle cx="280" cy="255" r="9" fill="#002255" stroke="#00aaff" stroke-width="1" opacity="0.7"/>
+  <circle cx="920" cy="255" r="9" fill="#002255" stroke="#00aaff" stroke-width="1" opacity="0.7"/>
+  <circle cx="520" cy="445" r="10" fill="#002255" stroke="#00aaff" stroke-width="1" opacity="0.7"/>
+  <circle cx="680" cy="445" r="10" fill="#002255" stroke="#00aaff" stroke-width="1" opacity="0.7"/>
+
+  <!-- Uncertain nodes (amber) -->
+  <circle cx="200" cy="420" r="10" fill="#221500" stroke="#ffaa00" stroke-width="1.2" opacity="0.75" filter="url(#glow-sm)"/>
+  <circle cx="200" cy="420" r="5" fill="#cc7700" opacity="0.7"/>
+  <circle cx="1000" cy="420" r="10" fill="#221500" stroke="#ffaa00" stroke-width="1.2" opacity="0.75" filter="url(#glow-sm)"/>
+  <circle cx="1000" cy="420" r="5" fill="#cc7700" opacity="0.7"/>
+
+  <!-- Untrusted nodes (red, small) -->
+  <circle cx="120" cy="530" r="8" fill="#1a0005" stroke="#ff4455" stroke-width="1" opacity="0.65"/>
+  <circle cx="120" cy="530" r="4" fill="#aa0011" opacity="0.6"/>
+  <circle cx="1080" cy="530" r="8" fill="#1a0005" stroke="#ff4455" stroke-width="1" opacity="0.65"/>
+  <circle cx="1080" cy="530" r="4" fill="#aa0011" opacity="0.6"/>
+
+  <!-- Scattered distant nodes — fills the canvas -->
+  <g opacity="0.3" filter="url(#glow-sm)">
+    <circle cx="80" cy="100" r="5" fill="#0055aa" stroke="#00aaff" stroke-width="0.8"/>
+    <circle cx="160" cy="170" r="4" fill="#0044aa" stroke="#0088dd" stroke-width="0.8"/>
+    <circle cx="1120" cy="100" r="5" fill="#0055aa" stroke="#00aaff" stroke-width="0.8"/>
+    <circle cx="1040" cy="170" r="4" fill="#0044aa" stroke="#0088dd" stroke-width="0.8"/>
+    <circle cx="100" cy="300" r="3" fill="#0055aa" stroke="#0088dd" stroke-width="0.6"/>
+    <circle cx="1100" cy="300" r="3" fill="#0055aa" stroke="#0088dd" stroke-width="0.6"/>
+    <circle cx="300" cy="560" r="4" fill="#0044aa" stroke="#0088dd" stroke-width="0.8"/>
+    <circle cx="900" cy="560" r="4" fill="#0044aa" stroke="#0088dd" stroke-width="0.8"/>
+    <circle cx="500" cy="580" r="3" fill="#0055aa" stroke="#0088dd" stroke-width="0.6"/>
+    <circle cx="700" cy="580" r="3" fill="#0055aa" stroke="#0088dd" stroke-width="0.6"/>
+    <line x1="80" y1="100" x2="160" y2="170" stroke="#0088dd" stroke-width="0.5" opacity="0.5"/>
+    <line x1="160" y1="170" x2="280" y2="255" stroke="#0088dd" stroke-width="0.5" opacity="0.3"/>
+    <line x1="1120" y1="100" x2="1040" y2="170" stroke="#0088dd" stroke-width="0.5" opacity="0.5"/>
+    <line x1="1040" y1="170" x2="920" y2="255" stroke="#0088dd" stroke-width="0.5" opacity="0.3"/>
+  </g>
+
+  <!-- ── LEGEND — trust signal key ─────────────────────────── -->
+  <g font-family="monospace" font-size="11" opacity="0.6">
+    <circle cx="52" cy="572" r="5" fill="#0055aa" stroke="#00aaff" stroke-width="1"/>
+    <text x="62" y="576" fill="#00aaff">verified</text>
+    <circle cx="132" cy="572" r="5" fill="#cc7700" stroke="#ffaa00" stroke-width="1"/>
+    <text x="142" y="576" fill="#ffaa00">uncertain</text>
+    <circle cx="222" cy="572" r="5" fill="#aa0011" stroke="#ff4455" stroke-width="1"/>
+    <text x="232" y="576" fill="#ff4455">untrusted</text>
+  </g>
+
+  <!-- ── WORDMARK ─────────────────────────────────────────────── -->
+  <!-- Glow layer -->
+  <text x="600" y="88"
+        font-family="'SF Pro Display','Helvetica Neue',Arial,sans-serif"
+        font-size="82" font-weight="700" letter-spacing="-3"
+        text-anchor="middle" fill="#00aaff" opacity="0.12"
+        filter="url(#text-glow)">TrstLyr</text>
+  <!-- Main text -->
+  <text x="600" y="88"
+        font-family="'SF Pro Display','Helvetica Neue',Arial,sans-serif"
+        font-size="82" font-weight="700" letter-spacing="-3"
+        text-anchor="middle" fill="#e8f4ff" opacity="0.96">TrstLyr</text>
+
+  <!-- Tagline -->
+  <text x="600" y="112"
+        font-family="'SF Pro Text','Helvetica Neue',Arial,sans-serif"
+        font-size="15" font-weight="300" letter-spacing="5"
+        text-anchor="middle" fill="#00aaff" opacity="0.7">TRUST INFRASTRUCTURE FOR THE AGENT INTERNET</text>
+
+  <!-- Divider -->
+  <line x1="510" y1="126" x2="690" y2="126" stroke="#00aaff" stroke-width="0.4" opacity="0.35"/>
+
+  <!-- ── SCORE BADGE (demo) ────────────────────────────────── -->
+  <!-- Shows what TrstLyr actually produces — a score -->
+  <g transform="translate(490, 490)">
+    <rect width="220" height="52" rx="10" fill="#001833" stroke="#00aaff" stroke-width="0.8" opacity="0.7"/>
+    <text x="16" y="22" font-family="monospace" font-size="11" fill="#00aaff" opacity="0.7">erc8004:19077</text>
+    <text x="16" y="40" font-family="monospace" font-size="11" fill="#aaccff" opacity="0.6">trust_score</text>
+    <text x="130" y="40" font-family="'SF Pro Display',Arial,sans-serif" font-size="20" font-weight="700" fill="#00ccff" opacity="0.9">79</text>
+    <text x="155" y="40" font-family="monospace" font-size="11" fill="#00aaff" opacity="0.6">/100</text>
+    <!-- green dot -->
+    <circle cx="200" cy="26" r="5" fill="#00cc66" opacity="0.8" filter="url(#glow-sm)"/>
+  </g>
+
+  <!-- BASE MAINNET pill -->
+  <g transform="translate(40, 596)">
+    <rect rx="9" ry="9" width="116" height="22" fill="none" stroke="#00aaff" stroke-width="0.5" opacity="0.3"/>
+    <text x="58" y="15" font-family="monospace" font-size="10" fill="#00aaff" opacity="0.5" text-anchor="middle" letter-spacing="1">BASE MAINNET</text>
+  </g>
+
+  <!-- APACHE 2.0 pill -->
+  <g transform="translate(1044, 596)">
+    <rect rx="9" ry="9" width="116" height="22" fill="none" stroke="#00aaff" stroke-width="0.5" opacity="0.3"/>
+    <text x="58" y="15" font-family="monospace" font-size="10" fill="#00aaff" opacity="0.5" text-anchor="middle" letter-spacing="1">APACHE 2.0</text>
+  </g>
+</svg>
