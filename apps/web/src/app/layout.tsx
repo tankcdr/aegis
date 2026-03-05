@@ -11,11 +11,20 @@ export const metadata: Metadata = {
     url: 'https://trstlyr.ai',
     siteName: 'trstlyr.ai',
     type: 'website',
+    images: [
+      {
+        url: 'https://trstlyr.ai/cover.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'TrstLyr — Trust scores for the agent internet',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'trstlyr.ai — Trust scores for the agent internet',
     description: 'Before you install, execute, or delegate — ask Aegis first.',
+    images: ['https://trstlyr.ai/cover.jpg'],
   },
 };
 
