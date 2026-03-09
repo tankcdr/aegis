@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { registerAttestRoutes } from './routes/attest.js';
+import { registerDiscoverRoutes } from './routes/discover.js';
 import { initDb, saveIdentityLink, loadIdentityLinks, dbStats, saveChallenge, deletePersistedChallenge, loadPendingChallenges, saveScoreHistory, loadScoreHistory } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -494,6 +495,9 @@ server.post('/v1/identity/verify', async (request, reply) => {
 const BASE_URL = process.env['BASE_URL'] ?? 'https://api.trstlyr.ai';
 await registerAttestRoutes(server, engine, BASE_URL);
 
+// ── Discovery routes ──────────────────────────────────────────────────────────
+await registerDiscoverRoutes(server, engine);
+
 // POST /v1/trust/gate — pre-trade / pre-action trust check
 // Returns machine-readable proceed: true/false with score + risk context.
 // Threshold logic:
@@ -605,6 +609,7 @@ server.get('/.well-known/agent.json', async (_request, reply) => {
         { id: 'identity_register', name: 'Identity Registration', description: 'Register and verify agent identities across namespaces' },
         { id: 'attest',            name: 'On-chain Attestation',  description: 'Anchor trust scores as EAS attestations on Base Mainnet' },
         { id: 'trust_gate',        name: 'Trust Gate',            description: 'Pre-trade / pre-action trust check — returns proceed:true/false with score, risk, and threshold context', tags: ['trading', 'risk', 'compliance'] },
+        { id: 'discover',          name: 'Agent Discovery',       description: 'Search and filter agents by capability, protocol, and trust score', tags: ['discovery', 'search', 'registry'] },
       ],
       trstlyrScoreUrl: 'https://api.trstlyr.ai/v1/trust/score/erc8004:19077',
       trustGateEndpoint: 'https://api.trstlyr.ai/v1/trust/gate',

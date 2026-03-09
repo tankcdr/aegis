@@ -210,6 +210,112 @@ export async function loadScoreHistory(
   return (data ?? []) as ScoreHistoryEntry[];
 }
 
+// ─── Agent Index ──────────────────────────────────────────────────────────────
+//
+// Supabase SQL to create the table:
+//
+//   CREATE TABLE IF NOT EXISTS agent_index (
+//     id               TEXT PRIMARY KEY,
+//     name             TEXT NOT NULL,
+//     description      TEXT,
+//     entity_type      TEXT DEFAULT 'agent',
+//     protocols        TEXT[] DEFAULT '{}',
+//     capabilities     TEXT[] DEFAULT '{}',
+//     claimed          BOOLEAN DEFAULT false,
+//     provider_sources TEXT[] DEFAULT '{}',
+//     last_indexed_at  TIMESTAMPTZ DEFAULT NOW(),
+//     metadata         JSONB DEFAULT '{}'
+//   );
+//   CREATE INDEX IF NOT EXISTS agent_index_protocols    ON agent_index USING GIN (protocols);
+//   CREATE INDEX IF NOT EXISTS agent_index_capabilities ON agent_index USING GIN (capabilities);
+
+export interface AgentIndexRow {
+  id:               string;
+  name:             string;
+  description?:     string;
+  entity_type:      'agent' | 'skill' | 'developer';
+  protocols:        string[];
+  capabilities:     string[];
+  claimed:          boolean;
+  provider_sources: string[];
+  last_indexed_at:  string;
+  metadata:         Record<string, unknown>;
+}
+
+interface AgentIndexFilters {
+  provider?:    string[];
+  capability?:  string[];
+  protocol?:    string[];
+  claimed?:     boolean;
+  q?:           string;
+  limit?:       number;
+  offset?:      number;
+}
+
+export async function listAgentIndex(filters: AgentIndexFilters = {}): Promise<AgentIndexRow[]> {
+  if (!supabase) return [];
+
+  let query = supabase.from('agent_index').select('*');
+
+  if (filters.claimed !== undefined) {
+    query = query.eq('claimed', filters.claimed);
+  }
+  if (filters.protocol && filters.protocol.length > 0) {
+    query = query.overlaps('protocols', filters.protocol);
+  }
+  if (filters.capability && filters.capability.length > 0) {
+    query = query.overlaps('capabilities', filters.capability);
+  }
+  if (filters.provider && filters.provider.length > 0) {
+    query = query.overlaps('provider_sources', filters.provider);
+  }
+
+  const { data, error } = await query
+    .order('last_indexed_at', { ascending: false })
+    .limit(filters.limit ?? 100);
+
+  if (error) {
+    console.error('[db] listAgentIndex error:', error.message);
+    return [];
+  }
+  return (data ?? []) as AgentIndexRow[];
+}
+
+export async function countAgentIndex(filters: AgentIndexFilters = {}): Promise<number> {
+  if (!supabase) return 0;
+
+  let query = supabase
+    .from('agent_index')
+    .select('*', { count: 'exact', head: true });
+
+  if (filters.claimed !== undefined) {
+    query = query.eq('claimed', filters.claimed);
+  }
+  if (filters.protocol && filters.protocol.length > 0) {
+    query = query.overlaps('protocols', filters.protocol);
+  }
+  if (filters.capability && filters.capability.length > 0) {
+    query = query.overlaps('capabilities', filters.capability);
+  }
+  if (filters.provider && filters.provider.length > 0) {
+    query = query.overlaps('provider_sources', filters.provider);
+  }
+
+  const { count, error } = await query;
+  if (error) {
+    console.error('[db] countAgentIndex error:', error.message);
+    return 0;
+  }
+  return count ?? 0;
+}
+
+export async function upsertAgentIndex(agent: AgentIndexRow): Promise<void> {
+  if (!supabase) return;
+  await supabase
+    .from('agent_index')
+    .upsert({ ...agent, last_indexed_at: new Date().toISOString() }, { onConflict: 'id' });
+}
+
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
 export async function dbStats(): Promise<{
