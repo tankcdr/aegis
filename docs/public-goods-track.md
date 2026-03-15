@@ -51,3 +51,7 @@ The engine resolves the author's linked identities, fans out to all relevant pro
 Public goods funding suffers from information asymmetry. Applicants know more about their projects than evaluators do, and evaluators lack the tooling to close that gap at scale. TrstLyr closes it by making evaluation data collection autonomous, multi-source, and cryptographically verifiable.
 
 TrstLyr does not just collect data — it attests it on-chain, making the evaluation record itself a public good.
+
+## Self Protocol: ZK Proof-of-Human as a Trust Signal
+
+TrstLyr now integrates Self Protocol's ZK proof-of-human verification as a signal source. Self Protocol issues soulbound ERC-721 tokens on Celo Mainnet to wallets that complete zero-knowledge identity verification — proving humanness without revealing personal data. TrstLyr queries the Self Agent ID registry on-chain and incorporates this signal into its Subjective Logic fusion, making it the first trust scoring system to combine web2 reputation (GitHub), web3 identity (ERC-8004), and ZK-attested human identity (Self Protocol) into a single verifiable score. This three-layer approach dramatically raises Sybil resistance: an attacker would need to compromise code history, on-chain registrations, and a ZK identity proof simultaneously.

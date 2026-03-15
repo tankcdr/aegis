@@ -22,6 +22,7 @@ import {
   ERC8004Provider,
   MoltbookProvider,
   ClawHubProvider,
+  SelfProtocolProvider,
 } from '../providers/index.js';
 import { TrustCache } from './cache.js';
 import { createEASWriter } from '../attestation/eas.js';
@@ -362,6 +363,8 @@ function buildDefaultProviders(): Provider[] {
   if (process.env['MOLTBOOK_API_KEY']) {
     providers.push(new MoltbookProvider());
   }
+
+  providers.push(new SelfProtocolProvider({})); // ZK proof-of-human (Celo Mainnet, no API key needed)
 
   return providers;
 }

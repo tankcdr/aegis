@@ -47,6 +47,12 @@
       "description": "Protocol-agnostic agent discovery — search and rank agents by capability, protocol, and live trust score across ERC-8004, A2A, MCP, ACP, ClawHub, Moltbook, and HOL.org.",
       "endpoint": "https://api.trstlyr.ai/v1/discover",
       "method": "GET"
+    },
+    {
+      "name": "self_verify",
+      "description": "Check whether an agent has a ZK proof-of-human Self Agent ID (Self Protocol) on Celo Mainnet. Returns has_self_id:true/false with confidence.",
+      "endpoint": "https://api.trstlyr.ai/v1/trust/score/self:{wallet_address}",
+      "method": "GET"
     }
   ],
   "tech_stack": [
