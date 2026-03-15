@@ -1,0 +1,109 @@
+{
+  "schema_version": "1.0",
+  "name": "Charon",
+  "description": "TrstLyr Protocol — trust infrastructure for the agent internet. Evaluates AI agents, skills, and repos via multi-signal trust scoring aggregated from GitHub, ERC-8004, Twitter, ClawHub, and Moltbook. Anchors results on-chain as EAS attestations on Base Mainnet. Exposes trust decisions as MCP tools and an HTTP API with x402 micropayment gating.",
+  "operator_wallet": "0x6FFa1e00509d8B625c2F061D7dB07893B37199BC",
+  "erc8004_identity": {
+    "agent_id": 19077,
+    "registry": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "registration_tx": "0x8e9342d7a92c52fd9cb7694751c680375e8817c1c5ad2456c8eb4d64fa6d7886",
+    "chain": "Base Mainnet",
+    "chain_id": 8453,
+    "explorer_url": "https://basescan.org/tx/0x8e9342d7a92c52fd9cb7694751c680375e8817c1c5ad2456c8eb4d64fa6d7886"
+  },
+  "supported_tools": [
+    {
+      "name": "trust_query",
+      "description": "Evaluate trust score for an agent, skill, or GitHub repo. Accepts namespaced subjects: github:user, github:user/repo, erc8004:id, clawhub:skill/slug, twitter:handle, moltbook:handle.",
+      "endpoint": "https://api.trstlyr.ai/v1/trust/score/{subject}",
+      "method": "GET"
+    },
+    {
+      "name": "trust_gate",
+      "description": "Pre-action trust check returning proceed:true/false with score, risk level, and threshold context. Used before trades, delegations, or agent-to-agent calls.",
+      "endpoint": "https://api.trstlyr.ai/v1/trust/gate",
+      "method": "POST"
+    },
+    {
+      "name": "trust_batch",
+      "description": "Batch trust evaluation — evaluate up to 20 subjects in a single call.",
+      "endpoint": "https://api.trstlyr.ai/v1/trust/batch",
+      "method": "POST"
+    },
+    {
+      "name": "identity_register",
+      "description": "Register and cross-verify agent identities across namespaces (GitHub, Twitter, ERC-8004, wallet). Dual-proof identity linking with cryptographic verification.",
+      "endpoint": "https://api.trstlyr.ai/v1/identity/register",
+      "method": "POST"
+    },
+    {
+      "name": "attest",
+      "description": "Anchor trust scores as EAS attestations on Base Mainnet. First attestation free; subsequent via x402 micropayment ($0.01 USDC).",
+      "endpoint": "https://api.trstlyr.ai/v1/attest",
+      "method": "POST"
+    },
+    {
+      "name": "discover",
+      "description": "Protocol-agnostic agent discovery — search and rank agents by capability, protocol, and live trust score across ERC-8004, A2A, MCP, ACP, ClawHub, Moltbook, and HOL.org.",
+      "endpoint": "https://api.trstlyr.ai/v1/discover",
+      "method": "GET"
+    }
+  ],
+  "tech_stack": [
+    "TypeScript",
+    "Node.js v24",
+    "Fastify",
+    "pnpm monorepo",
+    "Base Mainnet (EAS attestations)",
+    "ERC-8004 (agent identity)",
+    "EAS (Ethereum Attestation Service)",
+    "Subjective Logic (Jøsang CBF fusion)",
+    "Ev-Trust decay (λ=0.15)",
+    "x402 micropayments",
+    "MCP (Model Context Protocol)",
+    "Supabase (attestation storage)",
+    "Railway (API hosting)",
+    "Vercel (landing page)",
+    "Next.js",
+    "Docker"
+  ],
+  "compute_constraints": {
+    "max_concurrent_requests": 120,
+    "rate_limit_per_minute": 120,
+    "batch_max_subjects": 20,
+    "provider_timeout_ms": 15000,
+    "cache_ttl_seconds": 300
+  },
+  "task_categories": [
+    "trust_evaluation",
+    "agent_identity_verification",
+    "on_chain_attestation",
+    "pre_action_risk_gating",
+    "agent_discovery",
+    "reputation_scoring"
+  ],
+  "safety_guardrails": [
+    "All write operations (EAS attestation) require x402 micropayment after first free use — prevents abuse",
+    "Input size limits enforced (subject: 256 chars, payment header: 4096 bytes)",
+    "SVG output XSS-sanitized via escapeXml helper",
+    "X-Forwarded-For spoofing mitigation (trustProxy: false)",
+    "Request deduplication via in-flight Map — prevents redundant scoring under load",
+    "Non-fatal EAS writes: scoring always returns even if on-chain write fails",
+    "Security headers: HSTS, CSP, X-Frame-Options on all responses"
+  ],
+  "autonomous_capabilities": {
+    "discovers_problems": "Monitors provider health and degrades gracefully when data sources are unavailable",
+    "plans_solutions": "Fuses multi-provider signals using Subjective Logic CBF — mathematically principled uncertainty handling",
+    "executes_tasks": "Fetches from 5 providers in parallel, scores, optionally attests on-chain, returns decision",
+    "verifies_outputs": "Confidence values (0-1) on every score; risk levels gate proceed/reject automatically",
+    "self_corrects": "Provider failures trigger 0.5 prior fallback per Subjective Logic — score remains valid under uncertainty"
+  },
+  "api_url": "https://api.trstlyr.ai",
+  "landing_page": "https://trstlyr.ai",
+  "repo": "https://github.com/tankcdr/aegis",
+  "a2a_agent_card": "https://api.trstlyr.ai/.well-known/agent.json",
+  "skill_manifest": "https://api.trstlyr.ai/skill.md",
+  "eas_schema_uid": "0xfff1179b55bf0717c0a071da701b4f597a6bfe0669bcb1daca6a66f0e14d407d",
+  "live_trust_score": "https://api.trstlyr.ai/v1/trust/score/erc8004:19077",
+  "license": "Apache-2.0"
+}
