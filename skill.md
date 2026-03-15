@@ -138,7 +138,7 @@ Response:
 {
   "results": [
     { "subject": "github:tankcdr", "trust_score": 50.1, ... },
-    { "subject": "erc8004:19077", "trust_score": 79.0, ... },
+    { "subject": "erc8004:31977", "trust_score": 79.0, ... },
     { "subject": "clawhub:skill/weather", "trust_score": 61.4, ... }
   ],
   "total": 3,

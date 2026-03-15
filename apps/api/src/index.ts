@@ -124,7 +124,7 @@ server.post('/v1/trust/batch', async (request, reply) => {
       example: {
         subjects: [
           { namespace: 'github', id: 'tankcdr' },
-          { namespace: 'erc8004', id: '19077' },
+          { namespace: 'erc8004', id: '31977' },
         ],
       },
     });
@@ -612,7 +612,7 @@ server.get('/.well-known/agent.json', async (_request, reply) => {
         { id: 'discover',          name: 'Agent Discovery',       description: 'Find and rank agents by capability, protocol, and trust score across ERC-8004, A2A, MCP, ACP, ClawHub, Moltbook, and HOL.org', tags: ['discovery', 'search', 'registry'] },
         { id: 'discover',          name: 'Agent Discovery',       description: 'Search and filter agents by capability, protocol, and trust score', tags: ['discovery', 'search', 'registry'] },
       ],
-      trstlyrScoreUrl: 'https://api.trstlyr.ai/v1/trust/score/erc8004:19077',
+      trstlyrScoreUrl: 'https://api.trstlyr.ai/v1/trust/score/erc8004:31977',
       trustGateEndpoint: 'https://api.trstlyr.ai/v1/trust/gate',
     });
 });
