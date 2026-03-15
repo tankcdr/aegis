@@ -26,6 +26,11 @@ export const EV_TRUST = {
   /**
    * λ = 0.15 — stable honest equilibrium per arXiv:2512.16167v2 §4.
    * Valid range: [0.1, 0.2].
+   *
+   * Half-life = ln(2) / λ = ln(2) / 0.15 ≈ 4.62 time units (scoring cycles).
+   * Each scoring cycle aligns with the provider TTL interval (~daily for off-chain).
+   * At daily scoring cadence the half-life is ~4.6 days — stale reputation decays
+   * meaningfully within a work-week but does not punish normal weekend inactivity.
    */
   LAMBDA:         0.15,
   /** Only apply Ev-Trust penalty when opinion spread exceeds this threshold */

@@ -108,8 +108,9 @@ export class TwitterProvider implements Provider {
         1.0,
       );
 
-      // Confidence scales with follower count (more followers = more observable signal)
-      const confidence = Math.min(0.45 + followers / 20_000, 0.90);
+      // Twitter social_presence is weak for AI agents — measures marketing not
+      // trustworthiness. Capped at 0.4 confidence so it never dominates fusion.
+      const confidence = Math.min(0.25 + followers / 50_000, 0.40);
 
       return [{
         provider: 'twitter',
