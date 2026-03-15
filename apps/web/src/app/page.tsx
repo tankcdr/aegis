@@ -49,7 +49,7 @@ const RISK_STYLES: Record<string, string> = {
 };
 
 const EXAMPLES = [
-  'erc8004:19077',
+  'erc8004:31977',
   'github:tankcdr',
   'github:tankcdr/aegis',
   'clawhub:skill/weather',
@@ -144,7 +144,7 @@ export default function Home() {
   const [result, setResult]   = useState<TrustResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
-  const [queried, setQueried] = useState('erc8004:19077');
+  const [queried, setQueried] = useState('erc8004:31977');
 
   const query = useCallback(async (subject: string) => {
     const s = subject.trim();
@@ -165,7 +165,7 @@ export default function Home() {
   }, []);
 
   // Load Charon's own score on mount — dogfooding the product
-  useEffect(() => { void query('erc8004:19077'); }, [query]);
+  useEffect(() => { void query('erc8004:31977'); }, [query]);
 
   const color = result ? scoreColor(result.trust_score) : '#6366f1';
 
@@ -259,12 +259,12 @@ export default function Home() {
                 type="text"
                 value={input}
                 onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && void query(input || 'erc8004:19077')}
-                placeholder="github:tankcdr · erc8004:19077"
+                onKeyDown={e => e.key === 'Enter' && void query(input || 'erc8004:31977')}
+                placeholder="github:tankcdr · erc8004:31977"
                 className="flex-1 min-w-0 bg-[#0a0a0f] border border-[#1e1e2e] focus:border-indigo-500/50 rounded-lg px-3 py-2 text-sm font-mono text-slate-300 placeholder-slate-700 outline-none transition-colors"
               />
               <button
-                onClick={() => void query(input || 'erc8004:19077')}
+                onClick={() => void query(input || 'erc8004:31977')}
                 disabled={loading}
                 className="shrink-0 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-mono transition-colors"
               >
