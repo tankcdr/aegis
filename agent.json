@@ -4,12 +4,13 @@
   "description": "TrstLyr Protocol — trust infrastructure for the agent internet. Evaluates AI agents, skills, and repos via multi-signal trust scoring aggregated from GitHub, ERC-8004, Twitter, ClawHub, and Moltbook. Anchors results on-chain as EAS attestations on Base Mainnet. Exposes trust decisions as MCP tools and an HTTP API with x402 micropayment gating.",
   "operator_wallet": "0x6FFa1e00509d8B625c2F061D7dB07893B37199BC",
   "erc8004_identity": {
-    "agent_id": 31977,
+    "agent_id": 32051,
     "registry": "eip155:8453:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
-    "registration_tx": "0x8e9342d7a92c52fd9cb7694751c680375e8817c1c5ad2456c8eb4d64fa6d7886",
     "chain": "Base Mainnet",
     "chain_id": 8453,
-    "explorer_url": "https://basescan.org/tx/0x8e9342d7a92c52fd9cb7694751c680375e8817c1c5ad2456c8eb4d64fa6d7886"
+    "wallet": "0xAaa00Fef6CD6a7B41e30c25b8655D599f462Cc43",
+    "participant_id": "70e82dc8d33a41dfbf3233742b6c10e0",
+    "self_custody": true
   },
   "supported_tools": [
     {
@@ -110,7 +111,7 @@
   "a2a_agent_card": "https://api.trstlyr.ai/.well-known/agent.json",
   "skill_manifest": "https://api.trstlyr.ai/skill.md",
   "eas_schema_uid": "0xfff1179b55bf0717c0a071da701b4f597a6bfe0669bcb1daca6a66f0e14d407d",
-  "live_trust_score": "https://api.trstlyr.ai/v1/trust/score/erc8004:31977",
+  "live_trust_score": "https://api.trstlyr.ai/v1/trust/score/erc8004:32051",
   "submissionMetadata": {
     "hackathon": "Synthesis",
     "track": "Build with AgentCash",
