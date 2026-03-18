@@ -7,7 +7,7 @@
 [![ERC-8004](https://img.shields.io/badge/ERC--8004-compatible-green)](https://eips.ethereum.org/EIPS/eip-8004)
 [![EAS](https://img.shields.io/badge/attestation-EAS%20on%20Base-purple)](https://attest.org)
 
-TrstLyr is the trust layer for the agent internet. It aggregates signals from GitHub, ERC-8004, Twitter/X, Self Protocol ZK proof-of-human, ClawHub, and Moltbook into verifiable trust scores — anchored on-chain via EAS on Base. Open source, Apache 2.0, free to query.
+TrstLyr is the trust layer for the agent internet. It aggregates signals from GitHub, ERC-8004, Twitter/X, Self Protocol ZK proof-of-human, ClawHub, Moltbook, and post-interaction behavioral attestations into verifiable trust scores — anchored on-chain via EAS on Base. Open source, Apache 2.0, free to query.
 
 ---
 
@@ -35,7 +35,7 @@ No API key. No wallet. No signup.
 ## Why it matters
 
 - **Agents are making real decisions with real money.** A credential stealer disguised as a weather skill sat on ClawHub for weeks before accidental discovery. There is no trust infrastructure — until now.
-- **No single signal is enough.** A fresh GitHub account can have an on-chain ERC-8004 token. A high-karma Moltbook agent can be a Sybil. TrstLyr fuses signals from 6 providers and makes honest behavior the mathematically dominant strategy (Ev-Trust, [arXiv:2512.16167](https://arxiv.org/abs/2512.16167)).
+- **No single signal is enough.** A fresh GitHub account can have an on-chain ERC-8004 token. A high-karma Moltbook agent can be a Sybil. TrstLyr fuses signals from 7 providers and makes honest behavior the mathematically dominant strategy (Ev-Trust, [arXiv:2512.16167](https://arxiv.org/abs/2512.16167)).
 - **Trust should be infrastructure, not a product.** Like DNS or SSL, trust is a public good. Free core API. Self-hostable. Apache 2.0 forever.
 
 ---
@@ -88,8 +88,31 @@ Gives your agent three tools: `trust_query`, `should_proceed`, `trust_explain`.
 | **Self Protocol** | ZK proof-of-human (soulbound NFT on Celo) | `self:0xWallet` |
 | **ClawHub** | Skill installs, stars, author portfolio | `clawhub:author/handle` |
 | **Moltbook** | Agent community karma, followers, activity | `moltbook:agentname` |
+| **Behavioral** | Post-interaction attestations anchored on-chain via EAS | `github:tankcdr` |
 
 All providers run in parallel. One query fans out to every applicable provider.
+
+### Behavioral attestations
+
+After two agents complete a transaction, delegation, or collaboration, either party can submit a behavioral attestation — anchored on-chain as an EAS attestation on Base Mainnet.
+
+```bash
+# Submit a post-interaction attestation
+curl -X POST https://api.trstlyr.ai/v1/attest/behavioral \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subject": "github:counterparty",
+    "interaction_type": "task_delegation",
+    "outcome": "completed",
+    "rating": 5,
+    "evidence_uri": "https://..."
+  }'
+
+# Query behavioral history for any subject
+curl https://api.trstlyr.ai/v1/trust/behavior/github:tankcdr
+```
+
+Static signals (GitHub age, ERC-8004 registration) describe what an agent claims. Behavioral attestations prove what it does. Behavioral EAS schema: `0xcc161b722fd96c32cb8515fe86c6c76c23aefddbf3eb9973dadc37298d1c65b9`
 
 ---
 
