@@ -14,6 +14,10 @@ export { ClawHubProvider }  from './clawhub.js';
 // ── Phase 2: ZK proof-of-human ──────────────────────────────────────────────
 export { SelfProtocolProvider } from './self.js';
 
+// ── Phase 2: Behavioral attestations ──────────────────────────────────────────
+export { BehavioralProvider } from './behavioral.js';
+export type { BehavioralRow, BehavioralFetcher } from './behavioral.js';
+
 // ── Phase 3 (planned) ─────────────────────────────────────────────────────────
 // export { SATIProvider }  from './sati.js';
 // export { EASProvider }   from './eas.js';    // read EAS attestation history

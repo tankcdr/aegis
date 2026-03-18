@@ -21,6 +21,8 @@ export { TwitterProvider }  from './providers/index.js';
 export { ERC8004Provider }  from './providers/index.js';
 export { MoltbookProvider } from './providers/index.js';
 export { ClawHubProvider }  from './providers/index.js';
+export { BehavioralProvider } from './providers/index.js';
+export type { BehavioralRow, BehavioralFetcher } from './providers/index.js';
 
 // ── Identity graph ───────────────────────────────────────────────────────────
 export { identityGraph, IdentityGraph } from './identity/index.js';
@@ -39,6 +41,8 @@ export type {
 // ── Attestation ──────────────────────────────────────────────────────────────
 export { EASWriter, createEASWriter } from './attestation/eas.js';
 export type { AttestationResult }     from './attestation/eas.js';
+export { BehavioralEASWriter, createBehavioralEASWriter } from './attestation/behavioral-eas.js';
+export type { BehavioralAttestationData, BehavioralAttestationResult } from './attestation/behavioral-eas.js';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 export type {

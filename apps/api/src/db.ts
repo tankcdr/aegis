@@ -316,6 +316,72 @@ export async function upsertAgentIndex(agent: AgentIndexRow): Promise<void> {
     .upsert({ ...agent, last_indexed_at: new Date().toISOString() }, { onConflict: 'id' });
 }
 
+// ─── Behavioral attestations ─────────────────────────────────────────────────
+
+export interface BehavioralAttestationRow {
+  id?:              string;
+  subject:          string;
+  attester:         string;
+  interaction_type: string;
+  outcome:          number;
+  rating:           number;
+  evidence_uri?:    string | null;
+  interaction_at:   string;
+  value_usdc:       number;
+  disputed:         boolean;
+  eas_uid?:         string | null;
+  tx_hash?:         string | null;
+  created_at?:      string;
+}
+
+export async function saveBehavioralAttestation(row: BehavioralAttestationRow): Promise<string | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('behavioral_attestations')
+    .insert(row)
+    .select('id')
+    .single();
+  if (error) {
+    console.error('[db] saveBehavioralAttestation error:', error.message);
+    return null;
+  }
+  return data?.id ?? null;
+}
+
+export async function loadBehavioralAttestations(subject: string): Promise<BehavioralAttestationRow[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('behavioral_attestations')
+    .select('*')
+    .eq('subject', subject)
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('[db] loadBehavioralAttestations error:', error.message);
+    return [];
+  }
+  return (data ?? []) as BehavioralAttestationRow[];
+}
+
+export async function countRecentAttestations(
+  attester: string,
+  subject: string,
+  windowDays = 30,
+): Promise<number> {
+  if (!supabase) return 0;
+  const since = new Date(Date.now() - windowDays * 86_400_000).toISOString();
+  const { count, error } = await supabase
+    .from('behavioral_attestations')
+    .select('*', { count: 'exact', head: true })
+    .eq('attester', attester)
+    .eq('subject', subject)
+    .gte('created_at', since);
+  if (error) {
+    console.error('[db] countRecentAttestations error:', error.message);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
 export async function dbStats(): Promise<{

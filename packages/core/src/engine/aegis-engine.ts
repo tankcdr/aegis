@@ -339,6 +339,11 @@ export class AegisEngine {
   providerNames(): string[] {
     return this.providers.map((p) => p.metadata().name);
   }
+
+  /** Add a provider at runtime (e.g. behavioral provider after DB init). */
+  addProvider(provider: Provider): void {
+    this.providers.push(provider);
+  }
 }
 
 // ─── Default provider factory ─────────────────────────────────────────────────

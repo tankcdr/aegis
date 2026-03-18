@@ -4,7 +4,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
-import { AegisEngine, identityGraph, issueChallenge, verifyChallenge, getChallenge, importChallenge } from '@aegis-protocol/core';
+import { AegisEngine, BehavioralProvider, identityGraph, issueChallenge, verifyChallenge, getChallenge, importChallenge } from '@aegis-protocol/core';
 import type { Action, Subject } from '@aegis-protocol/core';
 import type { FastifyReply } from 'fastify';
 import { readFileSync } from 'node:fs';
@@ -12,7 +12,8 @@ import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { registerAttestRoutes } from './routes/attest.js';
 import { registerDiscoverRoutes } from './routes/discover.js';
-import { initDb, saveIdentityLink, loadIdentityLinks, dbStats, saveChallenge, deletePersistedChallenge, loadPendingChallenges, saveScoreHistory, loadScoreHistory } from './db.js';
+import { registerBehavioralRoutes } from './routes/behavioral.js';
+import { initDb, saveIdentityLink, loadIdentityLinks, dbStats, saveChallenge, deletePersistedChallenge, loadPendingChallenges, saveScoreHistory, loadScoreHistory, loadBehavioralAttestations } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -495,6 +496,9 @@ server.post('/v1/identity/verify', async (request, reply) => {
 const BASE_URL = process.env['BASE_URL'] ?? 'https://api.trstlyr.ai';
 await registerAttestRoutes(server, engine, BASE_URL);
 
+// ── Behavioral attestation routes ────────────────────────────────────────────
+await registerBehavioralRoutes(server, BASE_URL);
+
 // ── Discovery routes ──────────────────────────────────────────────────────────
 await registerDiscoverRoutes(server, engine);
 
@@ -724,6 +728,10 @@ for (const link of savedLinks) {
 if (savedLinks.length > 0) {
   console.log(`[db] Restored ${savedLinks.length} identity link(s)`);
 }
+
+// Wire behavioral provider into trust engine (queries Supabase for attestation data)
+engine.addProvider(new BehavioralProvider(loadBehavioralAttestations));
+console.log('[engine] Behavioral provider registered');
 
 server.listen({ port, host: '0.0.0.0' }, (err) => {
   if (err) {
