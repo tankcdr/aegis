@@ -168,7 +168,7 @@ server.post('/v1/trust/batch', async (request, reply) => {
 server.get<{ Params: { subject: string } }>(
   '/v1/trust/score/:subject',
   async (request, reply) => {
-    const raw = decodeURIComponent(request.params.subject);
+    const raw = normalizeSubjectInput(decodeURIComponent(request.params.subject));
     if (!validateSubjectString(raw, reply)) return;
     const colonIdx = raw.indexOf(':');
     let namespace: string;
@@ -201,7 +201,7 @@ server.get<{ Params: { subject: string } }>(
 server.get<{ Params: { subject: string }; Querystring: { limit?: string } }>(
   '/v1/trust/history/:subject',
   async (request, reply) => {
-    const raw     = decodeURIComponent(request.params.subject);
+    const raw     = normalizeSubjectInput(decodeURIComponent(request.params.subject));
     if (!validateSubjectString(raw, reply)) return;
     const colonIdx = raw.indexOf(':');
     const namespace = colonIdx > 0 ? raw.slice(0, colonIdx) : 'github';
@@ -240,6 +240,46 @@ function escapeXml(s: string): string {
 const MAX_SUBJECT_LEN = 256;
 const MAX_ID_LEN      = 200;
 
+/**
+ * Normalize free-form subject input into `namespace:id` format.
+ *
+ * Handles:
+ *   https://github.com/vbuterin      → github:vbuterin
+ *   github.com/vbuterin              → github:vbuterin
+ *   https://github.com/owner/repo    → github:owner/repo
+ *   https://twitter.com/vbuterin     → twitter:vbuterin
+ *   https://x.com/vbuterin           → twitter:vbuterin
+ *   vbuterin.eth                     → ens:vbuterin.eth
+ *   0xAbc...                         → wallet:0xAbc...
+ *   github:vbuterin                  → github:vbuterin   (passthrough)
+ */
+function normalizeSubjectInput(raw: string): string {
+  const s = raw.trim();
+
+  // Already in namespace:id format
+  if (/^[a-z0-9_-]+:[^\s]+$/i.test(s) && !s.startsWith('http')) return s;
+
+  // Strip URL scheme
+  const noScheme = s.replace(/^https?:\/\//i, '');
+
+  // github.com/owner[/repo]
+  const githubMatch = noScheme.match(/^(?:www\.)?github\.com\/([^\s/?#]+(?:\/[^\s/?#]+)?)/i);
+  if (githubMatch) return `github:${githubMatch[1]}`;
+
+  // twitter.com/handle  or  x.com/handle
+  const twitterMatch = noScheme.match(/^(?:www\.)?(?:twitter|x)\.com\/([^\s/?#]+)/i);
+  if (twitterMatch) return `twitter:${twitterMatch[1]}`;
+
+  // ENS name: ends in .eth (or .xyz / .id for common ENS TLDs)
+  if (/^[a-z0-9-]+\.(?:eth|xyz|id)$/i.test(s)) return `ens:${s.toLowerCase()}`;
+
+  // Ethereum address (0x…)
+  if (/^0x[0-9a-f]{40,}/i.test(s)) return `wallet:${s.toLowerCase()}`;
+
+  // No transformation — return as-is (engine will handle it or return an error)
+  return s;
+}
+
 function validateSubjectString(raw: string, reply: FastifyReply): boolean {
   if (raw.length > MAX_SUBJECT_LEN) {
     reply.code(400).send({ error: `Subject exceeds maximum length of ${MAX_SUBJECT_LEN} characters` });
@@ -264,7 +304,7 @@ function validateSubjectParts(namespace: string, id: string, reply: FastifyReply
 server.get<{ Params: { subject: string } }>(
   '/v1/trust/score/:subject/badge.svg',
   async (request, reply) => {
-    const raw = decodeURIComponent(request.params.subject);
+    const raw = normalizeSubjectInput(decodeURIComponent(request.params.subject));
     const colonIdx = raw.indexOf(':');
     const namespace = colonIdx > 0 ? raw.slice(0, colonIdx) : 'github';
     const id        = colonIdx > 0 ? raw.slice(colonIdx + 1) : raw;

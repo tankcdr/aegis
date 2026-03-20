@@ -4,6 +4,23 @@ import { useState, useEffect, useCallback } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.trstlyr.ai';
 
+/**
+ * Normalize free-form subject input into `namespace:id` format.
+ * Mirrors the server-side normalizeSubjectInput() in index.ts — keep in sync.
+ */
+function normalizeSubjectInput(raw: string): string {
+  const s = raw.trim();
+  if (/^[a-z0-9_-]+:[^\s]+$/i.test(s) && !s.startsWith('http')) return s;
+  const noScheme = s.replace(/^https?:\/\//i, '');
+  const githubMatch = noScheme.match(/^(?:www\.)?github\.com\/([^\s/?#]+(?:\/[^\s/?#]+)?)/i);
+  if (githubMatch) return `github:${githubMatch[1]}`;
+  const twitterMatch = noScheme.match(/^(?:www\.)?(?:twitter|x)\.com\/([^\s/?#]+)/i);
+  if (twitterMatch) return `twitter:${twitterMatch[1]}`;
+  if (/^[a-z0-9-]+\.(?:eth|xyz|id)$/i.test(s)) return `ens:${s.toLowerCase()}`;
+  if (/^0x[0-9a-f]{40,}/i.test(s)) return `wallet:${s.toLowerCase()}`;
+  return s;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface TrustResult {
@@ -147,7 +164,7 @@ export default function Home() {
   const [queried, setQueried] = useState('erc8004:31977');
 
   const query = useCallback(async (subject: string) => {
-    const s = subject.trim();
+    const s = normalizeSubjectInput(subject);
     if (!s) return;
     setLoading(true);
     setError(null);
