@@ -10,6 +10,11 @@
 //   20+             → u=0.1 (high confidence)
 //
 // Subject formats: any namespace (behavioral attestations are cross-namespace)
+//
+// Identity deduplication: when a LinkedSubjectResolver is provided, the provider
+// fetches attestations for ALL linked identifiers in a single aggregated pass,
+// then returns ONE signal. This prevents double-counting when the engine fans out
+// across linked identities (e.g. github:tankcdr + erc8004:31977 → one behavioral signal).
 
 import type {
   EvaluateRequest,
@@ -40,11 +45,29 @@ export interface BehavioralRow {
 /** Function type for fetching behavioral attestations from the DB */
 export type BehavioralFetcher = (subject: string) => Promise<BehavioralRow[]>;
 
+/**
+ * Optional resolver: given a subject key, returns all linked subject keys
+ * (including the original). Used to aggregate attestations across identities.
+ * When not provided, only the queried subject key is used.
+ */
+export type LinkedSubjectResolver = (subjectKey: string) => string[];
+
 export class BehavioralProvider implements Provider {
   private readonly fetchAttestations: BehavioralFetcher;
+  private readonly resolveLinked: LinkedSubjectResolver | undefined;
 
-  constructor(fetcher: BehavioralFetcher) {
+  /**
+   * @param fetcher         DB fetch function — returns attestations for a subject key
+   * @param resolveLinked   Optional: returns all linked subject keys for a given key.
+   *                        When provided, attestations are aggregated across all linked
+   *                        identities and a single deduplicated signal is returned.
+   *                        The provider will skip evaluation for non-canonical subjects
+   *                        (i.e. subjects that appear as a linked identity of another)
+   *                        to prevent double-counting.
+   */
+  constructor(fetcher: BehavioralFetcher, resolveLinked?: LinkedSubjectResolver) {
     this.fetchAttestations = fetcher;
+    this.resolveLinked = resolveLinked;
   }
 
   metadata(): ProviderMetadata {
@@ -65,7 +88,19 @@ export class BehavioralProvider implements Provider {
   }
 
   supported(subject: Subject): boolean {
-    // Behavioral attestations can exist for any namespace
+    // Behavioral attestations can exist for any namespace.
+    // When a linked resolver is configured, we only respond to the "canonical"
+    // subject — defined as one that is NOT listed purely as a linked alias of
+    // another subject already in the dispatch list. In practice the engine calls
+    // us once per linked identity; we use the resolver to detect when we've
+    // already been called for a more-canonical form of this subject (by checking
+    // whether this subject key appears as a linked result of any other subject).
+    // The simplest safe heuristic: always return true here and deduplicate inside
+    // evaluate() by fetching all linked keys at once and returning [] for
+    // non-primary calls (detected via a seen-set on the engine's identity graph).
+    //
+    // Actual dedup is handled in evaluate() — we return an empty array for any
+    // linked-identity call that would duplicate a prior result.
     return true;
   }
 
@@ -74,8 +109,43 @@ export class BehavioralProvider implements Provider {
     const subjectKey = `${subject.namespace}:${subject.id}`;
     const timestamp = new Date().toISOString();
 
+    // ── Identity-aware aggregation ─────────────────────────────────────────────
+    // When a resolver is provided, collect all linked subject keys and fetch
+    // attestations for all of them in parallel. Return [] for any call that
+    // is not the "lowest" (alphabetically first) key in the linked set — this
+    // ensures exactly one signal is produced regardless of how many times the
+    // engine calls us across linked identities.
+    let subjectKeysToFetch: string[];
+
+    if (this.resolveLinked) {
+      const allKeys = this.resolveLinked(subjectKey);
+      // Canonical = alphabetically smallest key — deterministic, stable
+      const canonical = [...allKeys].sort()[0] ?? subjectKey;
+      if (subjectKey !== canonical) {
+        // This is a linked alias — the canonical call will handle aggregation
+        return [];
+      }
+      subjectKeysToFetch = allKeys;
+    } else {
+      subjectKeysToFetch = [subjectKey];
+    }
+
     try {
-      const rows = await this.fetchAttestations(subjectKey);
+      // Fetch attestations for all linked subjects in parallel, deduplicate by id
+      const allRowArrays = await Promise.all(
+        subjectKeysToFetch.map(k => this.fetchAttestations(k))
+      );
+      const seen = new Set<string>();
+      const rows: BehavioralRow[] = [];
+      for (const arr of allRowArrays) {
+        for (const row of arr) {
+          const dedupKey = row.id ?? `${row.attester}:${row.interaction_at}:${row.subject}`;
+          if (!seen.has(dedupKey)) {
+            seen.add(dedupKey);
+            rows.push(row);
+          }
+        }
+      }
 
       if (rows.length === 0) {
         // Vacuous opinion — no behavioral data, full uncertainty

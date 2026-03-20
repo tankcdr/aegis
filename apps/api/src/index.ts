@@ -729,9 +729,21 @@ if (savedLinks.length > 0) {
   console.log(`[db] Restored ${savedLinks.length} identity link(s)`);
 }
 
-// Wire behavioral provider into trust engine (queries Supabase for attestation data)
-engine.addProvider(new BehavioralProvider(loadBehavioralAttestations));
-console.log('[engine] Behavioral provider registered');
+// Wire behavioral provider into trust engine (queries Supabase for attestation data).
+// Pass a linked-subject resolver so behavioral attestations are aggregated across
+// all linked identities (e.g. github:tankcdr + erc8004:31977) into a single signal,
+// preventing double-counting when the engine fans out across linked subjects.
+engine.addProvider(new BehavioralProvider(
+  loadBehavioralAttestations,
+  (subjectKey: string) => {
+    const [namespace, ...rest] = subjectKey.split(':');
+    const id = rest.join(':');
+    const subj = { namespace: namespace ?? '', id: id ?? '' };
+    const linked = identityGraph.resolveAll(subj);
+    return [subjectKey, ...linked.map(s => `${s.namespace}:${s.id}`)];
+  }
+));
+console.log('[engine] Behavioral provider registered (with linked-identity aggregation)');
 
 server.listen({ port, host: '0.0.0.0' }, (err) => {
   if (err) {
