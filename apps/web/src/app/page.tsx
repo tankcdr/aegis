@@ -67,7 +67,7 @@ const RISK_STYLES: Record<string, string> = {
 
 const EXAMPLES = [
   'erc8004:31977',
-  'github:tankcdr',
+  'github:vbuterin',
   'github:tankcdr/aegis',
   'clawhub:skill/weather',
 ];
@@ -277,7 +277,7 @@ export default function Home() {
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && void query(input || 'erc8004:31977')}
-                placeholder="github:tankcdr · erc8004:31977"
+                placeholder="github:vbuterin · erc8004:31977"
                 className="flex-1 min-w-0 bg-[#0a0a0f] border border-[#1e1e2e] focus:border-indigo-500/50 rounded-lg px-3 py-2 text-sm font-mono text-slate-300 placeholder-slate-700 outline-none transition-colors"
               />
               <button
@@ -464,12 +464,12 @@ curl -X POST https://api.trstlyr.ai/v1/identity/verify \\
           </div>
           <pre className="px-5 py-4 text-xs font-mono text-slate-300 overflow-x-auto leading-relaxed">
 {`# Query a trust score (free)
-curl https://api.trstlyr.ai/v1/trust/score/github:tankcdr
+curl https://api.trstlyr.ai/v1/trust/score/github:vbuterin
 
 # Anchor on-chain — 1 free per subject, $0.01 USDC via x402 after
 curl -X POST https://api.trstlyr.ai/v1/attest \\
   -H "Content-Type: application/json" \\
-  -d '{"subject": "github:tankcdr"}'
+  -d '{"subject": "github:vbuterin"}'
 
 # Self-host with Docker
 git clone https://github.com/tankcdr/aegis && cd aegis

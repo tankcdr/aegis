@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrstLyr Protocol — Live Demo</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0f172a;
+    --bg-card:  #1e293b;
+    --bg-code:  #0d1117;
+    --blue:     #3b82f6;
+    --blue-dim: #2563eb;
+    --green:    #22c55e;
+    --green-dim:#16a34a;
+    --yellow:   #eab308;
+    --orange:   #f97316;
+    --red:      #ef4444;
+    --text:     #f1f5f9;
+    --text-dim: #94a3b8;
+    --border:   #334155;
+    --radius:   12px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* ─── Header ─── */
+  header {
+    text-align: center;
+    padding: 56px 24px 40px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #0f172a 0%, #162032 100%);
+  }
+  header .logo {
+    font-size: 48px;
+    font-weight: 800;
+    letter-spacing: -1px;
+  }
+  header .logo .icon { margin-right: 8px; }
+  header .logo .highlight { color: var(--blue); }
+  header .tagline {
+    font-size: 20px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    font-weight: 400;
+  }
+  header .badge {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 4px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    background: rgba(59,130,246,0.15);
+    color: var(--blue);
+    border: 1px solid rgba(59,130,246,0.3);
+  }
+
+  /* ─── Layout ─── */
+  main {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* ─── Section ─── */
+  .section {
+    margin-bottom: 56px;
+  }
+  .section-number {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--blue);
+    margin-bottom: 8px;
+  }
+  .section-title {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .section-desc {
+    color: var(--text-dim);
+    font-size: 16px;
+    margin-bottom: 24px;
+    max-width: 640px;
+  }
+
+  /* ─── Card ─── */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+  }
+
+  /* ─── Buttons ─── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 28px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #fff;
+    background: var(--blue);
+  }
+  .btn:hover { background: var(--blue-dim); transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: none;
+  }
+  .btn.loading .spinner { display: block; }
+  .btn.loading .btn-label { opacity: 0.7; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ─── Input ─── */
+  .input-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .input-row label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dim);
+    min-width: 60px;
+  }
+  input[type="text"], select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 16px;
+    color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    outline: none;
+    transition: border-color 0.2s;
+    flex: 1;
+    min-width: 180px;
+  }
+  input:focus, select:focus { border-color: var(--blue); }
+
+  /* ─── Results ─── */
+  .result {
+    margin-top: 24px;
+    display: none;
+    animation: fadeIn 0.4s ease;
+  }
+  .result.visible { display: block; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ─── Status Badge ─── */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    border-radius: 999px;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .status-badge.live {
+    background: rgba(34,197,94,0.15);
+    color: var(--green);
+    border: 1px solid rgba(34,197,94,0.3);
+  }
+  .status-badge .dot {
+    width: 10px; height: 10px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* ─── Health Grid ─── */
+  .health-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+  }
+  .health-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .health-item .label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .health-item .value {
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  /* ─── Provider List ─── */
+  .provider-list {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .provider-list li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(34,197,94,0.1);
+    border: 1px solid rgba(34,197,94,0.25);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--green);
+  }
+
+  /* ─── Big Score ─── */
+  .score-hero {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .score-number {
+    font-size: 72px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -2px;
+  }
+  .score-meta { flex: 1; min-width: 200px; }
+  .score-meta .risk-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .risk-minimal, .risk-low    { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .risk-medium  { background: rgba(234,179,8,0.15); color: var(--yellow); border: 1px solid rgba(234,179,8,0.3); }
+  .risk-high    { background: rgba(249,115,22,0.15); color: var(--orange); border: 1px solid rgba(249,115,22,0.3); }
+  .risk-critical{ background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+
+  .recommendation {
+    font-size: 18px;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+
+  /* ─── Confidence Bar ─── */
+  .confidence-row {
+    margin: 20px 0;
+  }
+  .confidence-row .label-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    margin-bottom: 6px;
+    color: var(--text-dim);
+  }
+  .confidence-bar {
+    height: 10px;
+    background: var(--bg);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .confidence-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--blue), var(--green));
+    border-radius: 5px;
+    transition: width 0.8s ease;
+  }
+
+  /* ─── Signal Breakdown ─── */
+  .signals-heading {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 13px;
+  }
+  .signal-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .signal-card .provider-name {
+    font-weight: 700;
+    font-size: 16px;
+    min-width: 120px;
+  }
+  .signal-card .signal-score {
+    font-size: 24px;
+    font-weight: 800;
+    min-width: 60px;
+    text-align: right;
+  }
+  .signal-card .evidence {
+    font-size: 13px;
+    color: var(--text-dim);
+    flex: 1;
+    min-width: 180px;
+  }
+  .signal-card .evidence span {
+    display: block;
+  }
+
+  /* ─── Code Block ─── */
+  .code-block {
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    margin-top: 16px;
+  }
+  .code-block .key { color: #7dd3fc; }
+  .code-block .str { color: #86efac; }
+  .code-block .num { color: #fbbf24; }
+  .code-block .bool { color: #c084fc; }
+  .code-block .null { color: #94a3b8; }
+
+  /* ─── x402 Card ─── */
+  .x402-card {
+    background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1));
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: var(--radius);
+    padding: 32px;
+    margin-top: 24px;
+  }
+  .x402-card .x402-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .x402-card .x402-status {
+    font-size: 14px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 6px;
+    background: rgba(249,115,22,0.15);
+    color: var(--orange);
+    border: 1px solid rgba(249,115,22,0.3);
+  }
+  .x402-card h3 {
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .x402-card p {
+    color: var(--text-dim);
+    font-size: 16px;
+    line-height: 1.7;
+    margin-bottom: 12px;
+  }
+  .x402-card .highlight-text {
+    color: var(--blue);
+    font-weight: 600;
+  }
+  .x402-card .price-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(34,197,94,0.12);
+    border: 1px solid rgba(34,197,94,0.25);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--green);
+    margin-top: 8px;
+  }
+
+  /* ─── Form Grid ─── */
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .form-group.full { grid-column: 1 / -1; }
+
+  /* ─── Footer ─── */
+  footer {
+    text-align: center;
+    padding: 32px 24px;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+  footer a { color: var(--blue); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 600px) {
+    .score-number { font-size: 48px; }
+    .form-grid { grid-template-columns: 1fr; }
+    header .logo { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ HEADER ═══════════════ -->
+<header>
+  <div class="logo"><span class="icon">&#9981;</span>Trst<span class="highlight">Lyr</span> Protocol</div>
+  <div class="tagline">Trust infrastructure for the agent internet</div>
+  <div class="badge">Live on Base Mainnet &middot; ERC-8004</div>
+</header>
+
+<main>
+
+<!-- ═══════════════ SECTION 1: HEALTH ═══════════════ -->
+<div class="section">
+  <div class="section-number">Step 1</div>
+  <div class="section-title">API Health Check</div>
+  <p class="section-desc">
+    Verify the TrstLyr Protocol API is live and all trust signal providers are online.
+  </p>
+  <div class="card">
+    <button class="btn" id="healthBtn" onclick="checkHealth()">
+      <span class="spinner"></span>
+      <span class="btn-label">Check API Health</span>
+    </button>
+    <div class="result" id="healthResult">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div class="status-badge live"><span class="dot"></span> <span id="healthStatus">LIVE</span></div>
+        <span style="color:var(--text-dim);font-size:15px;" id="healthVersion"></span>
+      </div>
+      <div class="health-grid" id="healthGrid"></div>
+      <div style="margin-top:20px;">
+        <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);margin-bottom:10px;">Providers Online</div>
+        <ul class="provider-list" id="providerList"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SECTION 2: TRUST QUERY ═══════════════ -->
+<div class="section">
+  <div class="section-number">Step 2</div>
+  <div class="section-title">Query Trust Score</div>
+  <p class="section-desc">
+    Resolve a multi-signal trust score using Subjective Logic opinion fusion across on-chain, behavioral, and code-level signals.
+  </p>
+  <div class="card">
+    <div class="input-row">
+      <label>Subject</label>
+      <input type="text" id="subjectInput" value="erc8004:31977" placeholder="e.g. erc8004:31977">
+    </div>
+    <button class="btn" id="trustBtn" onclick="queryTrust()">
+      <span class="spinner"></span>
+      <span class="btn-label">Query Trust Score</span>
+    </button>
+
+    <div class="result" id="trustResult">
+      <!-- Hero Score -->
+      <div class="score-hero">
+        <div class="score-number" id="scoreNumber">—</div>
+        <div class="score-meta">
+          <div id="riskBadge" class="risk-badge risk-low">LOW</div>
+          <div class="recommendation" id="recommendation"></div>
+          <div style="font-size:14px;color:var(--text-dim);margin-top:4px;" id="entityType"></div>
+        </div>
+      </div>
+
+      <!-- Confidence -->
+      <div class="confidence-row">
+        <div class="label-row">
+          <span>Confidence</span>
+          <span id="confidenceVal">0%</span>
+        </div>
+        <div class="confidence-bar">
+          <div class="confidence-fill" id="confidenceFill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Signal Breakdown -->
+      <div class="signals-heading">Signal Breakdown</div>
+      <div id="signalList"></div>
+
+      <!-- Raw JSON -->
+      <details style="margin-top:20px;">
+        <summary style="cursor:pointer;color:var(--text-dim);font-size:14px;font-weight:600;">View Raw Response</summary>
+        <div class="code-block" id="trustJson"></div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SECTION 3: ATTESTATION ═══════════════ -->
+<div class="section">
+  <div class="section-number">Step 3</div>
+  <div class="section-title">Submit Behavioral Attestation</div>
+  <p class="section-desc">
+    Submit a peer attestation about an agent's behavior. In production, this is gated by an x402 micropayment to prevent Sybil attacks.
+  </p>
+  <div class="card">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Subject</label>
+        <input type="text" id="attestSubject" value="erc8004:31977">
+      </div>
+      <div class="form-group">
+        <label>Interaction Type</label>
+        <select id="attestType">
+          <option value="delegation" selected>delegation</option>
+          <option value="trade">trade</option>
+          <option value="task">task</option>
+          <option value="data_access">data_access</option>
+          <option value="payment">payment</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Outcome</label>
+        <select id="attestOutcome">
+          <option value="2" selected>success (2)</option>
+          <option value="1">partial (1)</option>
+          <option value="0">failed (0)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Rating</label>
+        <select id="attestRating">
+          <option value="5" selected>5 / 5</option>
+          <option value="4">4 / 5</option>
+          <option value="3">3 / 5</option>
+          <option value="2">2 / 5</option>
+          <option value="1">1 / 5</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Evidence URI</label>
+        <input type="text" id="attestEvidence" value="https://github.com/vbuterin/ethereum">
+      </div>
+    </div>
+    <button class="btn" id="attestBtn" onclick="submitAttestation()">
+      <span class="spinner"></span>
+      <span class="btn-label">Submit Attestation</span>
+    </button>
+
+    <div class="result" id="attestResult">
+      <div class="x402-card">
+        <div class="x402-header">
+          <div class="x402-status" id="attestStatusCode">402 Payment Required</div>
+        </div>
+        <h3>x402 Micropayment Required</h3>
+        <p>
+          This endpoint is gated by the <span class="highlight-text">x402 payment protocol</span> &mdash;
+          a machine-native HTTP payment standard. Every behavioral attestation requires a cryptographic proof
+          of payment, which binds the attester's wallet to their claim.
+        </p>
+        <p>
+          This is how TrstLyr prevents <span class="highlight-text">Sybil attacks</span>. You can't spam
+          fake reviews when each one costs real money and is tied to an on-chain identity.
+        </p>
+        <div class="price-badge">&#x1F4B0; $0.01 USDC per attestation &middot; Base Mainnet</div>
+      </div>
+
+      <details style="margin-top:20px;">
+        <summary style="cursor:pointer;color:var(--text-dim);font-size:14px;font-weight:600;">View Raw Response</summary>
+        <div class="code-block" id="attestJson"></div>
+      </details>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<footer>
+  Built at <strong>The Synthesis Hackathon 2026</strong> &middot; ERC-8004 &middot; Base Mainnet<br>
+  <a href="https://trstlyr.ai" target="_blank">trstlyr.ai</a>
+</footer>
+
+<script>
+const API = 'https://api.trstlyr.ai';
+
+/* ─── Helpers ─── */
+function setLoading(btn, loading) {
+  btn.classList.toggle('loading', loading);
+  btn.disabled = loading;
+}
+
+function show(el) {
+  el.classList.add('visible');
+}
+
+function scoreColor(score) {
+  if (score >= 80) return 'var(--green)';
+  if (score >= 60) return '#84cc16';
+  if (score >= 40) return 'var(--yellow)';
+  if (score >= 20) return 'var(--orange)';
+  return 'var(--red)';
+}
+
+function syntaxHighlight(json) {
+  const str = JSON.stringify(json, null, 2);
+  return str.replace(/("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*")\s*:/g, '<span class="key">$1</span>:')
+            .replace(/:\s*("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*")/g, ': <span class="str">$1</span>')
+            .replace(/:\s*(\d+\.?\d*)/g, ': <span class="num">$1</span>')
+            .replace(/:\s*(true|false)/g, ': <span class="bool">$1</span>')
+            .replace(/:\s*(null)/g, ': <span class="null">$1</span>');
+}
+
+function formatUptime(seconds) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+/* ─── Section 1: Health ─── */
+async function checkHealth() {
+  const btn = document.getElementById('healthBtn');
+  setLoading(btn, true);
+  try {
+    const res = await fetch(`${API}/health`);
+    const data = await res.json();
+
+    document.getElementById('healthVersion').textContent = `v${data.version}`;
+
+    // Stats grid
+    const grid = document.getElementById('healthGrid');
+    const uptimeStr = formatUptime(data.uptime_seconds || 0);
+    const providerCount = (data.providers || []).length;
+    const network = data.x402?.network || 'Base Mainnet';
+    const price = data.x402?.attestation_price_usdc || '0.01';
+
+    grid.innerHTML = `
+      <div class="health-item"><div class="label">Uptime</div><div class="value">${uptimeStr}</div></div>
+      <div class="health-item"><div class="label">Providers</div><div class="value">${providerCount}</div></div>
+      <div class="health-item"><div class="label">Network</div><div class="value" style="font-size:16px;">${network}</div></div>
+      <div class="health-item"><div class="label">Attest Price</div><div class="value" style="color:var(--green);">$${price}</div></div>
+    `;
+
+    // Provider list
+    const list = document.getElementById('providerList');
+    list.innerHTML = (data.providers || []).map(p => `<li>&#10003; ${p}</li>`).join('');
+
+    show(document.getElementById('healthResult'));
+  } catch (e) {
+    alert('Failed to reach API: ' + e.message);
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
+/* ─── Section 2: Trust Query ─── */
+async function queryTrust() {
+  const btn = document.getElementById('trustBtn');
+  const subjectRaw = document.getElementById('subjectInput').value.trim();
+  const [ns, id] = subjectRaw.split(':');
+
+  setLoading(btn, true);
+  try {
+    const res = await fetch(`${API}/v1/trust/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subject: { type: 'agent', namespace: ns, id: id },
+        providers: ['erc8004', 'github', 'behavioral', 'self']
+      })
+    });
+    const data = await res.json();
+
+    // Score
+    const score = data.trust_score ?? 0;
+    const el = document.getElementById('scoreNumber');
+    el.textContent = score.toFixed(2);
+    el.style.color = scoreColor(score);
+
+    // Risk badge
+    const risk = data.risk_level || 'low';
+    const badge = document.getElementById('riskBadge');
+    badge.textContent = risk.toUpperCase();
+    badge.className = 'risk-badge risk-' + risk;
+
+    // Recommendation
+    document.getElementById('recommendation').textContent = data.recommendation_label || data.recommendation || '';
+
+    // Entity type
+    document.getElementById('entityType').textContent =
+      `Entity: ${data.entity_type || 'agent'} · ${(data.signals || []).length} signals · evaluated ${new Date(data.evaluated_at).toLocaleTimeString()}`;
+
+    // Confidence bar
+    const conf = (data.confidence ?? 0);
+    document.getElementById('confidenceVal').textContent = (conf * 100).toFixed(0) + '%';
+    document.getElementById('confidenceFill').style.width = (conf * 100) + '%';
+
+    // Signals
+    const signalList = document.getElementById('signalList');
+    signalList.innerHTML = (data.signals || []).map(s => {
+      const sScore = ((s.score ?? 0) * 100).toFixed(1);
+      const evidenceItems = Object.entries(s.evidence || {}).slice(0, 4).map(
+        ([k, v]) => `<span><strong>${k}:</strong> ${typeof v === 'object' ? JSON.stringify(v) : v}</span>`
+      ).join('');
+      return `
+        <div class="signal-card">
+          <div class="provider-name">${s.provider || s.signal_type || '—'}</div>
+          <div class="evidence">${evidenceItems || '<span style="color:var(--text-dim)">No evidence data</span>'}</div>
+          <div class="signal-score" style="color:${scoreColor(parseFloat(sScore))}">${sScore}</div>
+        </div>`;
+    }).join('');
+
+    // Raw JSON
+    document.getElementById('trustJson').innerHTML = syntaxHighlight(data);
+
+    show(document.getElementById('trustResult'));
+  } catch (e) {
+    alert('Query failed: ' + e.message);
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
+/* ─── Section 3: Attestation ─── */
+async function submitAttestation() {
+  const btn = document.getElementById('attestBtn');
+  setLoading(btn, true);
+  try {
+    const subject = document.getElementById('attestSubject').value.trim();
+    const body = {
+      subject: subject,
+      interactionType: document.getElementById('attestType').value,
+      outcome: parseInt(document.getElementById('attestOutcome').value),
+      rating: parseInt(document.getElementById('attestRating').value),
+      evidenceURI: document.getElementById('attestEvidence').value.trim()
+    };
+
+    const res = await fetch(`${API}/v1/attest/behavioral`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+
+    // Update status code display
+    const statusEl = document.getElementById('attestStatusCode');
+    statusEl.textContent = `${res.status} ${res.statusText || (res.status === 402 ? 'Payment Required' : res.status === 401 ? 'Unauthorized' : '')}`;
+
+    // Raw JSON
+    document.getElementById('attestJson').innerHTML = syntaxHighlight(data);
+
+    show(document.getElementById('attestResult'));
+  } catch (e) {
+    // Even on network error, show the x402 explanation
+    document.getElementById('attestJson').innerHTML = `<span class="str">"${e.message}"</span>`;
+    show(document.getElementById('attestResult'));
+  } finally {
+    setLoading(btn, false);
+  }
+}
+</script>
+</body>
+</html>
