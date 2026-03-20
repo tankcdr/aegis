@@ -51,8 +51,12 @@ export function fuseTwo(a: Opinion, b: Opinion): Opinion {
   if (Math.abs(a.uncertainty - 1) < 1e-10) return { ...b };
   if (Math.abs(b.uncertainty - 1) < 1e-10) return { ...a };
 
+  // Correct per Jøsang SL §12.3: denominator for baseRate is u_A + u_B - 2·u_A·u_B
+  // NOT (u_A + u_B - u_A·u_B) - 2·u_A·u_B which was off by one u_A·u_B term.
+  // When both baseRates equal 0.5 (always) this correctly collapses to 0.5;
+  // the wrong formula produced baseRate ≈ 1.9 when uncertainty is high, inflating scores past 100.
   const aDenomBase =
-    denom - 2 * a.uncertainty * b.uncertainty;
+    a.uncertainty + b.uncertainty - 2 * a.uncertainty * b.uncertainty;
 
   return {
     belief:
