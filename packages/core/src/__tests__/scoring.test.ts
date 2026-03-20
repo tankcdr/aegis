@@ -239,6 +239,105 @@ describe('applyContextMultiplier', () => {
   });
 });
 
+// ── Regression: CBF edge cases that caused real scoring bugs ─────────────────
+describe('fuseTwo — CBF edge case regressions', () => {
+  // Bug 1: vacuous opinion (u=1) produced negative baseRate → score clamped to 0
+  // Repro: twitter:VitalikButerin scored 0/critical instead of ~66/medium
+  it('vacuous opinion fused with real opinion does not corrupt score (was: score→0)', () => {
+    const real    = signalToOpinion(sig(0.9, 0.4)); // twitter social_presence
+    const vacuous = { belief: 0, disbelief: 0, uncertainty: 1, baseRate: SL.BASE_RATE };
+    const fused   = fuseTwo(real, vacuous);
+    const score   = projectScore(fused);
+    // Should be close to projecting the real opinion alone (not 0)
+    const scoreAlone = projectScore(real);
+    expect(score).toBeCloseTo(scoreAlone, 3);
+    expect(score).toBeGreaterThan(0.5);
+  });
+
+  // Bug 2: aDenomBase used (denom - 2·u_A·u_B) instead of (u_A + u_B - 2·u_A·u_B)
+  // With equal baseRates the result should always be 0.5, not ~1.9
+  // Repro: github:tankcdr scored 100 with weak signals (github 0.50, twitter 0.20)
+  it('fusing two moderate-uncertainty opinions keeps baseRate ≈ 0.5 (was: ~1.9)', () => {
+    const a = signalToOpinion(sig(0.5033, 0.5055)); // github tankcdr
+    const b = signalToOpinion(sig(0.20258, 0.25024)); // twitter tankcdr
+    const fused = fuseTwo(a, b);
+    expect(fused.baseRate).toBeCloseTo(0.5, 2);
+  });
+
+  it('high-uncertainty fusion never produces projected score > 1 (was: score→100)', () => {
+    // Multiple combinations of weak/uncertain signals
+    const pairs: [number, number][] = [
+      [0.5033, 0.5055], [0.20258, 0.25024],
+      [0.3, 0.3], [0.4, 0.35],
+      [0.6, 0.4], [0.1, 0.2],
+    ];
+    for (let i = 0; i < pairs.length - 1; i++) {
+      const [s1, c1] = pairs[i]!;
+      const [s2, c2] = pairs[i + 1]!;
+      const fused = fuseTwo(signalToOpinion(sig(s1, c1)), signalToOpinion(sig(s2, c2)));
+      const score = projectScore(fused);
+      expect(score).toBeGreaterThanOrEqual(0);
+      expect(score).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('fused opinion components always sum to 1 regardless of uncertainty level', () => {
+    const cases: [number, number, number, number][] = [
+      [0.9, 0.4,  0.5, 0.0],  // real + vacuous
+      [0.5, 0.5,  0.2, 0.25], // two moderate
+      [0.8, 0.95, 0.3, 0.3],  // strong + weak
+      [0.0, 1.0,  1.0, 1.0],  // dogmatic opposite extremes
+    ];
+    for (const [s1, c1, s2, c2] of cases) {
+      const fused = fuseTwo(signalToOpinion(sig(s1, c1)), signalToOpinion(sig(s2, c2)));
+      expect(fused.belief + fused.disbelief + fused.uncertainty).toBeCloseTo(1, 5);
+    }
+  });
+});
+
+// ── Monotonicity: stronger signal → higher score ───────────────────────────────
+describe('scoring monotonicity', () => {
+  it('higher score signal → higher projected trust (same confidence)', () => {
+    const scoreA = projectScore(fuseOpinions([signalToOpinion(sig(0.9, 0.8))]));
+    const scoreB = projectScore(fuseOpinions([signalToOpinion(sig(0.5, 0.8))]));
+    expect(scoreA).toBeGreaterThan(scoreB);
+  });
+
+  it('higher confidence → lower uncertainty → score moves further from base rate', () => {
+    const highConf = projectScore(fuseOpinions([signalToOpinion(sig(0.8, 0.95))]));
+    const lowConf  = projectScore(fuseOpinions([signalToOpinion(sig(0.8, 0.3))]));
+    // High confidence pulls score further from 0.5 toward signal score (0.8)
+    expect(highConf).toBeGreaterThan(lowConf);
+  });
+
+  it('well-known subject scores higher than unknown subject (vbuterin > tankcdr)', () => {
+    // vbuterin: github score=0.8, confidence=0.95
+    const vbuterin = projectScore(fuseOpinions([signalToOpinion(sig(0.8, 0.95))]));
+    // tankcdr: github score=0.50, conf=0.51 + twitter score=0.20, conf=0.25
+    const tankcdr  = projectScore(fuseOpinions([
+      signalToOpinion(sig(0.5033, 0.5055)),
+      signalToOpinion(sig(0.20258, 0.25024)),
+    ]));
+    expect(vbuterin).toBeGreaterThan(tankcdr);
+  });
+
+  it('adding a weak negative signal to strong signals does not inflate score', () => {
+    const strong = projectScore(fuseOpinions([signalToOpinion(sig(0.8, 0.95))]));
+    const withWeak = projectScore(fuseOpinions([
+      signalToOpinion(sig(0.8, 0.95)),
+      signalToOpinion(sig(0.2, 0.25)),
+    ]));
+    // Weak negative signal should pull score down, not up
+    expect(withWeak).toBeLessThanOrEqual(strong);
+  });
+
+  it('adding a vacuous signal never changes the score', () => {
+    const base    = fuseOpinions([signalToOpinion(sig(0.8, 0.95))]);
+    const withVac = fuseOpinions([signalToOpinion(sig(0.8, 0.95)), signalToOpinion(sig(0.5, 0))]);
+    expect(projectScore(withVac)).toBeCloseTo(projectScore(base), 4);
+  });
+});
+
 // ── detectEntityType ──────────────────────────────────────────────────────────
 describe('detectEntityType', () => {
   it('erc8004 → agent', () => expect(detectEntityType('erc8004', '19077')).toBe('agent'));
