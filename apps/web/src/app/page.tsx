@@ -23,6 +23,11 @@ function normalizeSubjectInput(raw: string): string {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface ProviderInfo {
+  provider: string;
+  status: string;
+}
+
 interface TrustResult {
   subject: string;
   trust_score: number;
@@ -156,12 +161,31 @@ function SignalBar({ signal }: { signal: Signal }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+const PROVIDER_DESCS: Record<string, string> = {
+  github:     'repo health, stars, commit history',
+  twitter:    'account age, followers, activity',
+  erc8004:    'on-chain agent identity registry',
+  clawhub:    'skill adoption & reputation',
+  moltbook:   'social karma & post history',
+  self:       'ZK proof-of-human (Celo soulbound)',
+  behavioral: 'interaction history & delivery record',
+};
+
 export default function Home() {
-  const [input, setInput]     = useState('');
-  const [result, setResult]   = useState<TrustResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
-  const [queried, setQueried] = useState('erc8004:31977');
+  const [input, setInput]         = useState('');
+  const [result, setResult]       = useState<TrustResult | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
+  const [queried, setQueried]     = useState('erc8004:31977');
+  const [providers, setProviders] = useState<ProviderInfo[]>([]);
+
+  // Fetch live provider list
+  useEffect(() => {
+    void fetch(`${API_BASE}/v1/providers`)
+      .then(r => r.json())
+      .then((d: { providers: ProviderInfo[] }) => setProviders(d.providers ?? []))
+      .catch(() => {/* graceful degradation */});
+  }, []);
 
   const query = useCallback(async (subject: string) => {
     const s = normalizeSubjectInput(subject);
@@ -370,17 +394,27 @@ export default function Home() {
                 adds signal — the more you prove, the higher your score and the more doors open.
               </p>
               <ul className="space-y-2 text-sm text-slate-400">
-                {[
-                  { ns: 'github:', desc: 'repo health, stars, commit history' },
-                  { ns: 'twitter:', desc: 'account age, followers, activity' },
-                  { ns: 'erc8004:', desc: 'on-chain agent identity registry' },
-                ].map(({ ns, desc }) => (
-                  <li key={ns} className="flex items-start gap-2">
-                    <span className="text-indigo-400 font-mono shrink-0">{ns}</span>
-                    <span>{desc}</span>
+                {(providers.length > 0 ? providers : [
+                  { provider: 'github',   status: 'healthy' },
+                  { provider: 'twitter',  status: 'healthy' },
+                  { provider: 'erc8004',  status: 'healthy' },
+                  { provider: 'clawhub',  status: 'healthy' },
+                  { provider: 'moltbook', status: 'healthy' },
+                  { provider: 'self',     status: 'healthy' },
+                  { provider: 'behavioral', status: 'healthy' },
+                ]).map(({ provider, status }) => (
+                  <li key={provider} className="flex items-start gap-2">
+                    <span className="text-indigo-400 font-mono shrink-0">{provider}:</span>
+                    <span className="flex-1">{PROVIDER_DESCS[provider] ?? 'trust signal provider'}</span>
+                    <span className={`text-xs font-mono shrink-0 ${status === 'healthy' ? 'text-green-500' : 'text-yellow-500'}`}>
+                      {status === 'healthy' ? '●' : '○'}
+                    </span>
                   </li>
                 ))}
               </ul>
+              <p className="text-xs text-slate-600 mt-3 font-mono">
+                {providers.length > 0 ? `${providers.length} providers live` : 'Loading live status...'}
+              </p>
             </div>
             <div className="bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1e1e2e]">
