@@ -18,7 +18,7 @@ function makeProvider(
         description: `Mock ${namespace} provider`,
         supported_subjects: ['agent', 'skill'],
         supported_namespaces: [namespace],
-        signal_types: [{ type: 'mock_signal', description: 'mock', weight: 1 }],
+        signal_types: [{ type: 'mock_signal', description: 'mock' }],
       };
     },
     supported(subject) { return subject.namespace === namespace; },
@@ -37,10 +37,10 @@ function makeProvider(
     },
     async health(): Promise<HealthStatus> {
       return {
-        provider: namespace,
         status: 'healthy',
-        latency_ms: 1,
-        evaluated_at: new Date().toISOString(),
+        last_check: new Date().toISOString(),
+        avg_response_ms: 1,
+        error_rate_1h: 0,
         dependencies: {},
       };
     },
