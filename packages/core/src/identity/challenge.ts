@@ -105,6 +105,7 @@ function methodForNamespace(namespace: string): ChallengeMethod {
     case 'erc8004':
     case 'eth':
     case 'wallet':
+    case 'self':
       return 'wallet_signature';
     default:
       return 'tweet'; // sensible default for social namespaces
@@ -423,8 +424,12 @@ async function verifyWalletSignature(challenge: Challenge, signature?: string): 
     return recovered.toLowerCase() === owner.toLowerCase();
   }
 
-  // wallet / eth namespace: id IS the address
-  if (challenge.subject.namespace === 'wallet' || challenge.subject.namespace === 'eth') {
+  // wallet / eth / self namespace: id IS the address
+  if (
+    challenge.subject.namespace === 'wallet' ||
+    challenge.subject.namespace === 'eth' ||
+    challenge.subject.namespace === 'self'
+  ) {
     return recovered.toLowerCase() === challenge.subject.id.toLowerCase();
   }
 
