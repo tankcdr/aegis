@@ -420,7 +420,13 @@ async function verifyWalletSignature(challenge: Challenge, signature?: string): 
   const recovered = ethers.verifyMessage(challenge.challengeString, signature);
 
   if (challenge.subject.namespace === 'erc8004') {
-    const owner = await getERC8004Owner(challenge.subject.id);
+    const id = challenge.subject.id;
+    // If id looks like a wallet address (0x + 40 hex chars), verify directly
+    if (/^0x[0-9a-fA-F]{40}$/.test(id)) {
+      return recovered.toLowerCase() === id.toLowerCase();
+    }
+    // Otherwise treat as agent ID and look up owner
+    const owner = await getERC8004Owner(id);
     return recovered.toLowerCase() === owner.toLowerCase();
   }
 
