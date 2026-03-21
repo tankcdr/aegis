@@ -47,8 +47,8 @@ const AMOUNT_USDC = '10000';
 // Coinbase x402 public facilitator
 const FACILITATOR_URL = 'https://x402.org/facilitator';
 
-// Base Mainnet chain in CAIP-2 format
-const BASE_MAINNET = 'eip155:8453';
+// Base Mainnet — x402 network identifier (x402 spec uses "base", not CAIP-2 "eip155:8453")
+const BASE_MAINNET = 'base';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
