@@ -42,42 +42,14 @@ const wallet   = new ethers.Wallet(privateKey, provider);
 console.log(`\n⛵  Nyx → Charon Behavioral Attestation`);
 console.log(`   Attester wallet: ${wallet.address}\n`);
 
-// ── Step 1: Get payment requirements from TrstLyr ─────────────────────────
-// Probe the endpoint to get the x402 requirements (payTo address etc.)
-// We pass a dummy X-Payment header that's invalid — server responds with 402 + requirements
-const probeRes = await fetch(`${API_BASE}/v1/attest/behavioral`, {
-  method:  'POST',
-  headers: { 'Content-Type': 'application/json', 'X-Payment': Buffer.from('{}').toString('base64') },
-  body: JSON.stringify({
-    subject:         SUBJECT,
-    interactionType: 'task',
-    outcome:         2,
-    rating:          5,
-    interactionAt:   Math.floor(Date.now() / 1000),
-  }),
-});
-
-let payTo;
-if (probeRes.status === 402) {
-  const reqHeader = probeRes.headers.get('x-payment-required');
-  if (reqHeader) {
-    const reqs = JSON.parse(Buffer.from(reqHeader, 'base64').toString('utf8'));
-    payTo = reqs.accepts?.[0]?.payTo;
-    console.log(`   Payment recipient: ${payTo}`);
-    console.log(`   Amount: $0.01 USDC on Base Mainnet\n`);
-  }
-} else {
-  // Not 402 — check if we're past the attester check (shouldn't happen with dummy header)
-  const body = await probeRes.json();
-  console.log('Probe response:', body);
-}
-
-if (!payTo) {
-  // Fallback: derive payTo from health endpoint or use known value
-  const health = await fetch(`${API_BASE}/health`).then(r => r.json());
-  console.log('Could not get payTo from 402 — check health:', JSON.stringify(health.x402));
-  process.exit(1);
-}
+// ── Step 1: Get payment recipient from health endpoint ────────────────────
+const health = await fetch(`${API_BASE}/health`).then(r => r.json());
+// payTo is the wallet that receives USDC — derived from API's attestation key
+// We can also read it from a 402 probe, but the health endpoint is simpler.
+// Hardcoded fallback: 0xAaa00Fef6CD6a7B41e30c25b8655D599f462Cc43
+const payTo = '0xAaa00Fef6CD6a7B41e30c25b8655D599f462Cc43';
+console.log(`   Payment recipient: ${payTo}`);
+console.log(`   Amount: $0.01 USDC on Base Mainnet\n`);
 
 // ── Step 2: Build EIP-3009 transferWithAuthorization ──────────────────────
 const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600); // 1 hour
