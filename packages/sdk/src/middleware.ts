@@ -150,9 +150,10 @@ function replyFastify(reply: Res, status: number, body: unknown): void {
   const r = reply as Record<string, unknown>;
   if (typeof r['code'] === 'function') {
     const coded = (r['code'] as (s: number) => Res)(status);
-    coded.send?.(JSON.stringify(body));
+    // Pass object directly so Fastify serializes as application/json
+    if (coded.send) coded.send(body as string);
   } else if (reply.status && reply.send) {
     reply.status(status);
-    reply.send(JSON.stringify(body));
+    reply.send(body as string);
   }
 }

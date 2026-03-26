@@ -139,6 +139,7 @@ export class TrstLyrError extends Error {
   ) {
     super(message);
     this.name = 'TrstLyrError';
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 

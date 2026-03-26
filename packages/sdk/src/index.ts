@@ -37,9 +37,32 @@ function client(): TrstLyrClient {
 
 // ── Functional API ──
 
-/** Query trust score for a subject. */
+/**
+ * Query trust score for a subject.
+ * Fail-open: returns a synthetic zero-confidence result if the API is unreachable.
+ */
 export async function score(subject: string): Promise<TrustScore> {
-  return client().score(subject);
+  try {
+    return await client().score(subject);
+  } catch {
+    // Fail open: return a synthetic "unknown" result
+    return {
+      subject,
+      trust_score: 0,
+      confidence: 0,
+      uncertainty: 1,
+      valid_until: new Date().toISOString(),
+      score_interpretation: { summary: 'API unreachable — fail open', signal_count: 0, signal_diversity: 0, sybil_resistance: 'low' },
+      risk_level: 'medium',
+      recommendation: 'review',
+      entity_type: 'unknown',
+      recommendation_label: 'Review — API unreachable',
+      signals: [],
+      fraud_signals: [],
+      unresolved: [],
+      evaluated_at: new Date().toISOString(),
+    };
+  }
 }
 
 /** Anchor a trust attestation on-chain (EAS on Base). */
