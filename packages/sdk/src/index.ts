@@ -14,6 +14,8 @@ export type {
   RiskLevel,
   Recommendation,
   EntityType,
+  X402PaymentDetails,
+  X402PaymentRequirement,
 } from './types.js';
 export { TrstLyrError, TrustGateError, PaymentRequiredError } from './types.js';
 

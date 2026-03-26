@@ -158,9 +158,70 @@ export class TrustGateError extends TrstLyrError {
   }
 }
 
+// ── x402 Payment types (spec: https://github.com/coinbase/x402) ──
+
+export interface X402PaymentRequirement {
+  scheme: string;
+  network: string;
+  maxAmountRequired: string;
+  resource: string;
+  description: string;
+  mimeType: string;
+  payTo: string;
+  maxTimeoutSeconds: number;
+  asset: string;
+  extra?: Record<string, unknown>;
+}
+
+export interface X402PaymentDetails {
+  x402Version: number;
+  accepts: X402PaymentRequirement[];
+  error: string;
+}
+
 export class PaymentRequiredError extends TrstLyrError {
-  constructor(message?: string) {
-    super(message ?? 'Payment required (x402)', 402, 'PAYMENT_REQUIRED');
+  /** Structured x402 payment requirements parsed from the API response. */
+  public readonly payment: X402PaymentDetails | null;
+
+  constructor(payment: X402PaymentDetails | null, rawMessage?: string) {
+    const msg =
+      payment?.error ??
+      rawMessage ??
+      'Payment required (x402)';
+    super(msg, 402, 'PAYMENT_REQUIRED');
     this.name = 'PaymentRequiredError';
+    this.payment = payment;
+  }
+
+  /** Convenience: the first (and usually only) payment requirement. */
+  get requirement(): X402PaymentRequirement | null {
+    return this.payment?.accepts?.[0] ?? null;
+  }
+
+  /** Human-readable amount in USDC (e.g. "0.01"). */
+  get amountUSDC(): string | null {
+    const raw = this.requirement?.maxAmountRequired;
+    if (!raw) return null;
+    return (Number(raw) / 1_000_000).toFixed(6).replace(/\.?0+$/, '') || '0';
+  }
+
+  /** Address to pay. */
+  get payTo(): string | null {
+    return this.requirement?.payTo ?? null;
+  }
+
+  /** Asset contract address (USDC on Base). */
+  get asset(): string | null {
+    return this.requirement?.asset ?? null;
+  }
+
+  /** Network identifier (e.g. "base"). */
+  get network(): string | null {
+    return this.requirement?.network ?? null;
+  }
+
+  /** Resource URL the payment unlocks. */
+  get resource(): string | null {
+    return this.requirement?.resource ?? null;
   }
 }

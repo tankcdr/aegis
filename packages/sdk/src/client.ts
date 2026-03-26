@@ -5,6 +5,7 @@ import type {
   BehavioralOpts,
   BehavioralResult,
   BehavioralHistory,
+  X402PaymentDetails,
 } from './types.js';
 import { TrstLyrError, PaymentRequiredError } from './types.js';
 
@@ -69,7 +70,15 @@ export class TrstLyrClient {
       const res = await fetch(url, { ...init, signal: controller.signal });
 
       if (res.status === 402) {
-        throw new PaymentRequiredError(await res.text().catch(() => undefined));
+        // Try to parse x402 payment details from the header first, then body
+        const payment = parseX402Header(res.headers.get('x-payment-required'));
+        if (payment) {
+          throw new PaymentRequiredError(payment);
+        }
+        // Fallback: try to parse body as x402 JSON
+        const body = await res.text().catch(() => '');
+        const bodyPayment = tryParseX402(body);
+        throw new PaymentRequiredError(bodyPayment, body || undefined);
       }
 
       if (!res.ok) {
@@ -99,5 +108,38 @@ export class TrstLyrClient {
       headers: this.headers(),
       body: JSON.stringify(body),
     });
+  }
+}
+
+// ── x402 parsing helpers ──────────────────────────────────────────────────────
+
+/**
+ * Parse the `X-Payment-Required` header.
+ * The TrstLyr API sends the x402 payload as a base64-encoded JSON string in this header.
+ */
+function parseX402Header(header: string | null): X402PaymentDetails | null {
+  if (!header) return null;
+  try {
+    // Try base64 decode first (TrstLyr API format)
+    const decoded = Buffer
+      ? Buffer.from(header, 'base64').toString('utf8')
+      : atob(header);
+    return tryParseX402(decoded);
+  } catch {
+    // Maybe it's raw JSON
+    return tryParseX402(header);
+  }
+}
+
+function tryParseX402(raw: string): X402PaymentDetails | null {
+  if (!raw) return null;
+  try {
+    const obj = JSON.parse(raw) as Record<string, unknown>;
+    if (obj && typeof obj === 'object' && 'accepts' in obj && Array.isArray(obj['accepts'])) {
+      return obj as unknown as X402PaymentDetails;
+    }
+    return null;
+  } catch {
+    return null;
   }
 }
