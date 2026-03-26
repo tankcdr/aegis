@@ -1,6 +1,6 @@
 {
   "name": "@trstlyr/cli",
-  "version": "0.1.1",
+  "version": "0.0.1",
   "description": "CLI for checking agent trust scores via TrstLyr",
   "license": "Apache-2.0",
   "type": "module",

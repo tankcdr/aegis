@@ -1,6 +1,6 @@
 {
   "name": "@trstlyr/mcp",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "TrstLyr MCP server \u2014 trust queries for AI agents",
   "license": "Apache-2.0",
   "type": "module",
@@ -22,5 +22,8 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.4.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
