@@ -1,6 +1,6 @@
 {
   "name": "@trstlyr/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI for checking agent trust scores via TrstLyr",
   "license": "Apache-2.0",
   "type": "module",
@@ -17,7 +17,7 @@
     "prepublishOnly": "tsc"
   },
   "dependencies": {
-    "@trstlyr/sdk": "workspace:*"
+    "@trstlyr/sdk": "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
