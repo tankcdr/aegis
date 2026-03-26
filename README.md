@@ -161,7 +161,7 @@ Full details: [Architecture](docs/ARCHITECTURE.md) | [Specification](docs/SPEC.m
 Apache 2.0 — PRs welcome.
 
 **Add a new provider:**
-1. Implement the `SignalProvider` interface ([docs](docs/PROVIDERS.md))
+1. Implement the `Provider` interface ([docs](docs/PROVIDERS.md))
 2. Register it in the provider index
 3. Open a PR with tests and example subjects
 
@@ -180,7 +180,7 @@ Discussion: [OpenClaw Discord](https://discord.com/invite/clawd)
 | API | [api.trstlyr.ai](https://api.trstlyr.ai) |
 | Website | [trstlyr.ai](https://trstlyr.ai) |
 | MCP | `@trstlyr/mcp` |
-| ERC-8004 Agent ID | `32051` (Base Mainnet) |
+| ERC-8004 Agent ID | `31977` (Base Mainnet) |
 | License | Apache 2.0 |
 
 Built by [Chris Madison](https://github.com/tankcdr) · Powered by Charon

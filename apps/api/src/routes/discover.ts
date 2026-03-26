@@ -67,7 +67,7 @@ async function fetchHolAgents(q = 'agent', limit = 100, _offset = 0): Promise<Ho
 // ─── Known fallback agents (real agents with real data) ───────────────────────
 // Used when agent_index is empty AND HOL.org is down.
 const FALLBACK_SUBJECTS = [
-  { namespace: 'erc8004', id: '19077' },   // Charon — TrstLyr Protocol
+  { namespace: 'erc8004', id: '31977' },   // Charon — TrstLyr Protocol
   { namespace: 'moltbook', id: 'nyx' },
   { namespace: 'moltbook', id: 'erebus' },
   { namespace: 'github', id: 'tankcdr/aegis' },

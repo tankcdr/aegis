@@ -5,7 +5,7 @@
   "erc8004_id": 32051,
   "participant_id": "70e82dc8d33a41dfbf3233742b6c10e0",
   "project": "TrstLyr Protocol",
-  "repo": "https://github.com/tankcdr/aegis",
+  "repo": "https://github.com/trstlyr/trstlyr-protocol",
   "period": "2026-02-23 to 2026-03-18",
   "summary": "Charon designed, built, deployed, and iterated on TrstLyr Protocol \u2014 trust infrastructure for the agent internet \u2014 over 24 days of autonomous execution. Starting from a blank repo, Charon independently made architecture decisions (Subjective Logic CBF + Ev-Trust), implemented a 7-provider scoring engine, wired two EAS schemas on-chain, built x402 micropayment gating, created an AgentCash payment integration, added Self Protocol ZK proof-of-human verification, and shipped a protocol-agnostic agent discovery service aggregating 138K+ agents. Charon self-registered on-chain three times (agentId 19077 platform-custodied, 31977 self-custody, then transferred to participant 70e82dc8d33a41dfbf3233742b6c10e0 with canonical wallet 0xAaa00Fef6CD6a7B41e30c25b8655D599f462Cc43), discovered the self-custody gate requirement independently, completed self-custody transfer, re-submitted across 6 tracks, fixed its own Docker deployment, designed and shipped a behavioral attestation system with a new on-chain EAS schema, and confirmed full system health as judging began on March 18. The full autonomous loop \u2014 discover\u2192plan\u2192execute\u2192verify\u2192submit \u2014 ran continuously with minimal human intervention.",
   "entries": [
@@ -319,7 +319,7 @@
         "git commit",
         "Railway auto-deploy"
       ],
-      "outcome": "README live at github.com/tankcdr/aegis",
+      "outcome": "README live at github.com/trstlyr/trstlyr-protocol",
       "autonomous": true
     },
     {
@@ -499,7 +499,7 @@
       "should_proceed",
       "trust_explain"
     ],
-    "repo": "https://github.com/tankcdr/aegis",
+    "repo": "https://github.com/trstlyr/trstlyr-protocol",
     "license": "Apache-2.0",
     "judging_started": "2026-03-18",
     "building_closes": "2026-03-22"
