@@ -1,4 +1,4 @@
-export { AegisEngine } from './aegis-engine.js';
+export { TrustEngine } from './trust-engine.js';
 export { TrustCache } from './cache.js';
 export {
   applyContextMultiplier,

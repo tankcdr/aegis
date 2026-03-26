@@ -1,7 +1,7 @@
 {
-  "name": "@aegis-protocol/api",
+  "name": "@trstlyr/api",
   "version": "0.1.0",
-  "description": "Aegis HTTP API — Fastify adapter over @aegis-protocol/core",
+  "description": "TrstLyr HTTP API \u2014 Fastify adapter over @trstlyr/core",
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +13,7 @@
     "loop": "tsx scripts/autonomous-loop.ts"
   },
   "dependencies": {
-    "@aegis-protocol/core": "workspace:*",
+    "@trstlyr/core": "workspace:*",
     "@fastify/cors": "^9.0.0",
     "@fastify/rate-limit": "^9.1.0",
     "@supabase/supabase-js": "^2.98.0",

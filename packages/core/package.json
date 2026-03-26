@@ -1,7 +1,7 @@
 {
-  "name": "@aegis-protocol/core",
+  "name": "@trstlyr/core",
   "version": "0.1.0",
-  "description": "Aegis Protocol trust engine — embeddable, zero AWS dependency",
+  "description": "TrstLyr trust engine \u2014 embeddable, zero AWS dependency",
   "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",

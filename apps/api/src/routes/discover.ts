@@ -2,7 +2,7 @@
 // x402 priced: 0.001 USDC per query, 3 free queries per IP per day
 
 import type { FastifyInstance } from 'fastify';
-import type { AegisEngine } from '@aegis-protocol/core';
+import type { TrustEngine } from '@trstlyr/core';
 import { listAgentIndex, countAgentIndex, type AgentIndexRow } from '../db.js';
 import { getPaymentReceiver } from '../x402/payment.js';
 
@@ -153,7 +153,7 @@ interface AgentSummary {
 
 export async function registerDiscoverRoutes(
   server: FastifyInstance,
-  engine: AegisEngine,
+  engine: TrustEngine,
 ): Promise<void> {
 
   server.get<{ Querystring: DiscoverQuery }>(

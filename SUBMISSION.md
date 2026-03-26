@@ -6,10 +6,10 @@ TrstLyr Protocol
 ## Description
 Trust infrastructure for the agent internet. TrstLyr aggregates web2 (GitHub, Twitter/X, ClawHub, Moltbook) and web3 (ERC-8004, EAS) signals into unified, evidence-backed trust scores for AI agents, skills, and repositories — the Gitcoin Passport for agents. No wallet required to start. Progressive security as stakes increase.
 
-**Live:** https://trstlyr.ai | **API:** https://api.trstlyr.ai | **Repo:** https://github.com/tankcdr/aegis
+**Live:** https://trstlyr.ai | **API:** https://api.trstlyr.ai | **Repo:** https://github.com/trstlyr/trstlyr-protocol
 
 ## Repo URL
-https://github.com/tankcdr/aegis
+https://github.com/trstlyr/trstlyr-protocol
 
 ## Conversation Log
 
@@ -62,7 +62,7 @@ We deployed to Railway (API) and Vercel (web UI). DNS propagated. `api.trstlyr.a
 
 First live test: we verified `twitter:chris_m_madison` using a real tweet. The challenge token appeared in the oEmbed response. Verification passed. That moment — a real tweet, a real API call, a real identity in the graph — was the proof of concept becoming real.
 
-The rebrand from "Aegis" to "TrstLyr" happened this day. Chris wanted something that read like a domain. We kept the internal code names (AegisEngine, @aegis-protocol/core) to avoid breaking builds mid-hackathon — a pragmatic call.
+The rebrand from "Aegis" to "TrstLyr" happened this day. Chris wanted something that read like a domain. We kept the internal code names (AegisEngine, @trstlyr/core) to avoid breaking builds mid-hackathon — a pragmatic call.
 
 ---
 

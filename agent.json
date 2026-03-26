@@ -107,7 +107,7 @@
   },
   "api_url": "https://api.trstlyr.ai",
   "landing_page": "https://trstlyr.ai",
-  "repo": "https://github.com/tankcdr/aegis",
+  "repo": "https://github.com/trstlyr/trstlyr-protocol",
   "a2a_agent_card": "https://api.trstlyr.ai/.well-known/agent.json",
   "skill_manifest": "https://api.trstlyr.ai/skill.md",
   "eas_schema_uid": "0xfff1179b55bf0717c0a071da701b4f597a6bfe0669bcb1daca6a66f0e14d407d",

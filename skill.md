@@ -42,7 +42,7 @@ Full query with optional context (recommended):
 curl -X POST https://api.trstlyr.ai/v1/trust/query \
   -H "Content-Type: application/json" \
   -d '{
-    "subject": "github:tankcdr/aegis",
+    "subject": "github:trstlyr/trstlyr-protocol",
     "context": {
       "action": "install",
       "value_at_risk": 0
@@ -78,7 +78,7 @@ curl -X POST https://api.trstlyr.ai/v1/trust/query \
 
 ```json
 {
-  "subject": "github:tankcdr/aegis",
+  "subject": "github:trstlyr/trstlyr-protocol",
   "trust_score": 71.4,
   "confidence": 0.82,
   "risk_level": "low",
@@ -259,7 +259,7 @@ TrstLyr ships an MCP server for Claude Desktop and other MCP-compatible runtimes
 
 **Install:**
 ```bash
-npm install -g @aegis-protocol/mcp
+npm install -g @trstlyr/mcp
 ```
 
 **Claude Desktop config** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
@@ -267,7 +267,7 @@ npm install -g @aegis-protocol/mcp
 {
   "mcpServers": {
     "trstlyr": {
-      "command": "aegis-mcp"
+      "command": "trstlyr-mcp"
     }
   }
 }
@@ -302,7 +302,7 @@ Attestations are written to EAS schema `0xfff1179b55bf0717c0a071da701b4f597a6bfe
 ## Self-Hosting
 
 ```bash
-git clone https://github.com/tankcdr/aegis.git
+git clone https://github.com/trstlyr/trstlyr-protocol.git
 cd aegis
 cp .env.example .env   # add your tokens
 docker compose up -d
@@ -350,7 +350,7 @@ TrstLyr runs a 7-step pipeline per query:
 ## Links
 
 - **Website:** https://trstlyr.ai
-- **GitHub:** https://github.com/tankcdr/aegis
+- **GitHub:** https://github.com/trstlyr/trstlyr-protocol
 - **EAS Schema:** https://base.easscan.org/schema/view/0xfff1179b55bf0717c0a071da701b4f597a6bfe0669bcb1daca6a66f0e14d407d
 - **License:** Apache 2.0
 

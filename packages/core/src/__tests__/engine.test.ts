@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AegisEngine } from '../engine/aegis-engine.js';
+import { TrustEngine } from '../engine/trust-engine.js';
 import type { EvaluateRequest, Provider, Signal, HealthStatus } from '../types/index.js';
 
 // ── Mock provider factory ─────────────────────────────────────────────────────
@@ -47,13 +47,13 @@ function makeProvider(
   };
 }
 
-function makeEngine(providers: Provider[]): AegisEngine {
-  return new AegisEngine({ providers });
+function makeEngine(providers: Provider[]): TrustEngine {
+  return new TrustEngine({ providers });
 }
 
 // ── Basic query ───────────────────────────────────────────────────────────────
 
-describe('AegisEngine — basic query', () => {
+describe('TrustEngine — basic query', () => {
   it('returns a trust result with expected shape', async () => {
     const engine = makeEngine([makeProvider('github', 0.8, 0.9)]);
     const result = await engine.query({
@@ -103,7 +103,7 @@ describe('AegisEngine — basic query', () => {
 
 // ── Caching ───────────────────────────────────────────────────────────────────
 
-describe('AegisEngine — caching', () => {
+describe('TrustEngine — caching', () => {
   it('second query for same subject returns cached result (same query_id)', async () => {
     const provider = makeProvider('github', 0.8, 0.9);
     const evaluateSpy = vi.spyOn(provider, 'evaluate');
@@ -140,7 +140,7 @@ describe('AegisEngine — caching', () => {
 
 // ── In-flight deduplication ───────────────────────────────────────────────────
 
-describe('AegisEngine — in-flight deduplication', () => {
+describe('TrustEngine — in-flight deduplication', () => {
   it('concurrent queries for same subject only invoke provider once', async () => {
     const provider = makeProvider('github', 0.8, 0.9, { delayMs: 50 });
     const evaluateSpy = vi.spyOn(provider, 'evaluate');
@@ -161,7 +161,7 @@ describe('AegisEngine — in-flight deduplication', () => {
 
 // ── Provider failure handling ─────────────────────────────────────────────────
 
-describe('AegisEngine — provider failure handling', () => {
+describe('TrustEngine — provider failure handling', () => {
   it('throwing provider does not crash the engine — result still returned', async () => {
     const badProvider  = makeProvider('github', 0.8, 0.9, { throws: true });
     const goodProvider = makeProvider('twitter', 0.7, 0.8);
@@ -179,7 +179,7 @@ describe('AegisEngine — provider failure handling', () => {
 
   it('provider timeout: slow provider does not block result indefinitely', async () => {
     const slowProvider = makeProvider('github', 0.9, 0.95, { delayMs: 5000 });
-    const engine = new AegisEngine({
+    const engine = new TrustEngine({
       providers: [slowProvider],
       scoring: { providerTimeout: 100 }, // 100ms timeout
     });
@@ -214,7 +214,7 @@ describe('AegisEngine — provider failure handling', () => {
 
 // ── Context multiplier ────────────────────────────────────────────────────────
 
-describe('AegisEngine — context action escalation', () => {
+describe('TrustEngine — context action escalation', () => {
   it('transact context escalates risk vs no context', async () => {
     const engine = makeEngine([makeProvider('github', 0.7, 0.7)]);
 
@@ -237,7 +237,7 @@ describe('AegisEngine — context action escalation', () => {
 
 // ── providerNames / health ────────────────────────────────────────────────────
 
-describe('AegisEngine — introspection', () => {
+describe('TrustEngine — introspection', () => {
   it('providerNames() lists all registered providers', () => {
     const engine = makeEngine([
       makeProvider('github', 0.8, 0.9),
@@ -267,7 +267,7 @@ describe('AegisEngine — introspection', () => {
 
 // ── Score sanity across provider combinations ─────────────────────────────────
 
-describe('AegisEngine — scoring sanity', () => {
+describe('TrustEngine — scoring sanity', () => {
   it('two strong agreeing signals → higher score than one alone', async () => {
     const single = makeEngine([makeProvider('github', 0.85, 0.9)]);
     const double = makeEngine([

@@ -1,7 +1,7 @@
 {
-  "name": "@aegis-protocol/contracts",
+  "name": "@trstlyr/contracts",
   "version": "0.1.0",
-  "description": "Aegis on-chain components — EAS schema registration",
+  "description": "TrstLyr on-chain components \u2014 EAS schema registration",
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {

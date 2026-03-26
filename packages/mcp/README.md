@@ -1,4 +1,4 @@
-# @aegis-protocol/mcp
+# @trstlyr/mcp
 
 MCP (Model Context Protocol) server for TrstLyr Protocol — gives AI agents the ability to check trust before acting.
 

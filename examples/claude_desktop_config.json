@@ -1,7 +1,7 @@
 {
   "_comment": "Aegis Protocol MCP server for Claude Desktop.",
   "_instructions": [
-    "1. Build the server: git clone https://github.com/tankcdr/aegis && cd aegis && pnpm install && pnpm -r build",
+    "1. Build the server: git clone https://github.com/trstlyr/trstlyr-protocol && cd aegis && pnpm install && pnpm -r build",
     "2. Replace <PATH_TO_AEGIS> with the actual path to your clone.",
     "3. Add this block to ~/Library/Application Support/Claude/claude_desktop_config.json (macOS)",
     "   or %APPDATA%/Claude/claude_desktop_config.json (Windows)",

@@ -8,8 +8,8 @@
 // Clients that support x402 will retry with X-PAYMENT header after paying.
 
 import type { FastifyInstance } from 'fastify';
-import type { AegisEngine } from '@aegis-protocol/core';
-import { createEASWriter } from '@aegis-protocol/core';
+import type { TrustEngine } from '@trstlyr/core';
+import { createEASWriter } from '@trstlyr/core';
 import { checkAttestationGate, extractPayment } from '../x402/payment.js';
 
 interface AttestBody {
@@ -18,7 +18,7 @@ interface AttestBody {
 
 export async function registerAttestRoutes(
   server: FastifyInstance,
-  engine: AegisEngine,
+  engine: TrustEngine,
   baseUrl: string,
 ): Promise<void> {
   // Lazy EAS writer — created once, only if private key is set

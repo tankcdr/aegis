@@ -1,7 +1,7 @@
-// @aegis-protocol/core — public API
+// @trstlyr/core — public API
 
 // ── Engine ───────────────────────────────────────────────────────────────────
-export { AegisEngine, TrustCache } from './engine/index.js';
+export { TrustEngine, TrustCache } from './engine/index.js';
 export {
   applyContextMultiplier,
   evTrustAdjust,

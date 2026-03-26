@@ -1,9 +1,9 @@
 import { TTL, HTTP, FRAUD } from '../constants.js';
-// AegisEngine — the embeddable trust engine (SPEC §4)
+// TrustEngine — the embeddable trust engine (SPEC §4)
 //
 // Embedding example (OpenClaw, custom platform, etc.):
-//   import { AegisEngine } from '@aegis-protocol/core';
-//   const engine = new AegisEngine();
+//   import { TrustEngine } from '@trstlyr/core';
+//   const engine = new TrustEngine();
 //   const result = await engine.query({
 //     subject: { type: 'skill', namespace: 'github', id: 'author/skill' }
 //   });
@@ -40,7 +40,7 @@ import {
   recommendationLabel,
 } from './scoring.js';
 
-export class AegisEngine {
+export class TrustEngine {
   private readonly providers: Provider[];
   private readonly cache: TrustCache;
   private readonly providerTimeout: number;

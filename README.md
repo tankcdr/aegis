@@ -68,7 +68,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "trstlyr": {
       "command": "npx",
-      "args": ["-y", "@aegis-protocol/mcp"]
+      "args": ["-y", "@trstlyr/mcp"]
     }
   }
 }
@@ -150,7 +150,7 @@ Agent / CLI / Platform
    6 Signal Providers ──► EAS Attestation Bridge (Base L2)
 ```
 
-Self-host: `git clone https://github.com/tankcdr/aegis && docker compose up -d`
+Self-host: `git clone https://github.com/trstlyr/trstlyr-protocol && docker compose up -d`
 
 Full details: [Architecture](docs/ARCHITECTURE.md) | [Specification](docs/SPEC.md) | [Provider Guide](docs/PROVIDERS.md)
 
@@ -165,7 +165,7 @@ Apache 2.0 — PRs welcome.
 2. Register it in the provider index
 3. Open a PR with tests and example subjects
 
-Issues, edge cases, signal provider proposals: [GitHub Issues](https://github.com/tankcdr/aegis/issues)
+Issues, edge cases, signal provider proposals: [GitHub Issues](https://github.com/trstlyr/trstlyr-protocol/issues)
 
 Discussion: [OpenClaw Discord](https://discord.com/invite/clawd)
 
@@ -179,7 +179,7 @@ Discussion: [OpenClaw Discord](https://discord.com/invite/clawd)
 |---|---|
 | API | [api.trstlyr.ai](https://api.trstlyr.ai) |
 | Website | [trstlyr.ai](https://trstlyr.ai) |
-| MCP | `@aegis-protocol/mcp` |
+| MCP | `@trstlyr/mcp` |
 | ERC-8004 Agent ID | `32051` (Base Mainnet) |
 | License | Apache 2.0 |
 

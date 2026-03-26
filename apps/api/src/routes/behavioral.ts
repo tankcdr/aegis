@@ -4,8 +4,8 @@
 // Spec: BEHAVIORAL_ATTESTATIONS.md
 
 import type { FastifyInstance } from 'fastify';
-import { createBehavioralEASWriter } from '@aegis-protocol/core';
-import type { BehavioralAttestationData } from '@aegis-protocol/core';
+import { createBehavioralEASWriter } from '@trstlyr/core';
+import type { BehavioralAttestationData } from '@trstlyr/core';
 import { checkAttestationGate, extractPayment } from '../x402/payment.js';
 import {
   saveBehavioralAttestation,

@@ -6,10 +6,10 @@
  * Or:  pnpm -w add -D tsx && npx tsx examples/demo.ts
  */
 
-import { AegisEngine } from '@aegis-protocol/core';
-import type { EvaluateRequest } from '@aegis-protocol/core';
+import { TrustEngine } from '@trstlyr/core';
+import type { EvaluateRequest } from '@trstlyr/core';
 
-const engine = new AegisEngine();
+const engine = new TrustEngine();
 
 const queries: EvaluateRequest[] = [
   { subject: { type: 'agent',  namespace: 'github', id: 'tankcdr' } },

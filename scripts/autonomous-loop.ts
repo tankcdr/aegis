@@ -3,14 +3,14 @@
  * Autonomous Trust Scoring Loop
  *
  * Fetches agents from HOL.org API (or uses hardcoded fallback list),
- * scores each via AegisEngine, and logs attestation-eligibility decisions.
+ * scores each via TrustEngine, and logs attestation-eligibility decisions.
  *
  * Usage:
  *   npx tsx scripts/autonomous-loop.ts            # live run
  *   npx tsx scripts/autonomous-loop.ts --dry-run   # no writes to agent_log.json
  */
 
-import { AegisEngine } from '@aegis-protocol/core';
+import { TrustEngine } from '@trstlyr/core';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -109,7 +109,7 @@ function appendToLog(decisions: LoopDecision[]): void {
     description: `Scored ${decisions.length} agents. ` +
       `${decisions.filter((d) => d.decision === 'attest_eligible').length} attest-eligible, ` +
       `${decisions.filter((d) => d.decision === 'skipped').length} skipped.`,
-    tools_used: ['AegisEngine.query', 'HOL.org API'],
+    tools_used: ['TrustEngine.query', 'HOL.org API'],
     outcome: decisions.map((d) => `${d.subject}: ${d.decision} (${d.trust_score})`).join('; '),
     autonomous: true,
     decisions,
@@ -126,7 +126,7 @@ async function main() {
   console.log(`\n🔄 TrstLyr Autonomous Scoring Loop${DRY_RUN ? ' (DRY RUN)' : ''}\n`);
 
   const subjects = await fetchAgentSubjects();
-  const engine = new AegisEngine();
+  const engine = new TrustEngine();
   const decisions: LoopDecision[] = [];
 
   for (const raw of subjects) {

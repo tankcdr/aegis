@@ -216,7 +216,7 @@ Suitable for self-hosted, low-traffic deployments. Single binary or container.
 For platforms integrating Aegis as a library:
 
 ```javascript
-import { AegisEngine } from '@aegis-protocol/core';
+import { AegisEngine } from '@trstlyr/core';
 
 const engine = new AegisEngine({
   providers: ['github', 'moltbook'],

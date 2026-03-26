@@ -10,12 +10,12 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { AegisEngine } from '@aegis-protocol/core';
-import type { TrustResult, Action } from '@aegis-protocol/core';
+import { TrustEngine } from '@trstlyr/core';
+import type { TrustResult, Action } from '@trstlyr/core';
 
 // ── Engine ────────────────────────────────────────────────────────────────────
 
-const engine = new AegisEngine();
+const engine = new TrustEngine();
 
 // ── Server ────────────────────────────────────────────────────────────────────
 
@@ -350,7 +350,7 @@ server.registerTool(
       .map((r, i) =>
         r.status === 'fulfilled'
           ? r.value
-          : { subject: subjects[i]!, result: null as unknown as import('@aegis-protocol/core').TrustResult, error: true },
+          : { subject: subjects[i]!, result: null as unknown as import('@trstlyr/core').TrustResult, error: true },
       )
       .sort((a, b) => {
         if (!a.result) return 1;

@@ -4,8 +4,8 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
-import { AegisEngine, BehavioralProvider, identityGraph, issueChallenge, verifyChallenge, getChallenge, importChallenge } from '@aegis-protocol/core';
-import type { Action, Subject } from '@aegis-protocol/core';
+import { TrustEngine, BehavioralProvider, identityGraph, issueChallenge, verifyChallenge, getChallenge, importChallenge } from '@trstlyr/core';
+import type { Action, Subject } from '@trstlyr/core';
 import type { FastifyReply } from 'fastify';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -33,7 +33,7 @@ if (!easSchemaUid) {
 }
 
 // ── Engine ────────────────────────────────────────────────────────────────────
-const engine = new AegisEngine();
+const engine = new TrustEngine();
 
 // ── Server ────────────────────────────────────────────────────────────────────
 // trustProxy: false — use raw socket IP for rate limiting.
